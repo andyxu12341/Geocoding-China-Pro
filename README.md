@@ -8,8 +8,8 @@
 ## ✨ 核心解决的痛点
 - 🚀 **超强并发处理**：分批请求算法（Batch processing，每 20 条/批），稳健扛住上千条 CSV 数据，绝不崩溃。
 - 🕒 **智能进度预估**：实时计算剩余时间，转换进度一目了然，拒绝等待焦虑。
-- 🛡️ **BYOK 模式**：支持高德 Web 服务 API Key 自带模式，保护隐私，无视额度上限。
-- 📊 **GIS 完美兼容**：一键导出 UTF-8 BOM 编码 CSV，直接导入 ArcGIS / QGIS / Excel，绝无中文乱码。
+- 🛡️ **BYOK 模式**：支持高德 Web 服务 API Key 自带模式，保护隐私。
+- 📊 **完美导出CVS用于 GIS 分析**：一键导出 UTF-8 BOM 编码 CSV，直接导入 ArcGIS / QGIS / Excel，绝无中文乱码。
 
 ## 🛠️ 技术栈
 `React` | `Vite` | `Tailwind CSS` | `Node.js (Express)`
