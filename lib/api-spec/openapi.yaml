@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Geocoding SaaS API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: geocode
+    description: Geocoding operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /geocode:
+    post:
+      operationId: geocodeBatch
+      tags: [geocode]
+      summary: Batch geocode addresses
+      description: Geocode a list of addresses using Gaode Maps API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeocodeBatchRequest"
+      responses:
+        "200":
+          description: Geocoding results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeocodeBatchResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +65,69 @@ components:
           type: string
       required:
         - status
-
+    GeocodeBatchRequest:
+      type: object
+      properties:
+        apiKey:
+          type: string
+          description: Gaode Maps Web Service API Key
+        addresses:
+          type: array
+          items:
+            type: string
+          description: List of addresses to geocode
+      required:
+        - apiKey
+        - addresses
+    GeocodeResult:
+      type: object
+      properties:
+        address:
+          type: string
+          description: Original address
+        lng:
+          type: string
+          description: Longitude
+        lat:
+          type: string
+          description: Latitude
+        formattedAddress:
+          type: string
+          description: Formatted address returned by API
+        status:
+          type: string
+          enum: [success, failed]
+        error:
+          type: string
+          description: Error message if failed
+      required:
+        - address
+        - status
+    GeocodeBatchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeocodeResult"
+        total:
+          type: integer
+        success:
+          type: integer
+        failed:
+          type: integer
+      required:
+        - results
+        - total
+        - success
+        - failed
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+        - message

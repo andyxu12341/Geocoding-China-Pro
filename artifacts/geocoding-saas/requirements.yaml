@@ -1,0 +1,11 @@
+packages:
+  "papaparse": "For robust CSV parsing on the client side"
+  "@types/papaparse": "TypeScript definitions for papaparse"
+  "framer-motion": "For smooth transitions and beautiful micro-animations"
+
+images: []
+
+notes:
+  - "The backend API at /api/geocode handles concurrency and retries, so the frontend only needs to make a single POST request."
+  - "Using indeterminate animated progress bar since backend doesn't stream progress."
+  - "Using Lucide React for all iconography."
