@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "HhYLnAoBPD5p7l13SqHTC"
+uri = "file://最终坐标落位.csv"
+type = "table"
+title = "最终坐标落位.csv"
