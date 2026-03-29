@@ -171,6 +171,7 @@ export default function Index() {
   const [showGaode, setShowGaode] = useState(false);
   const [showBaidu, setShowBaidu] = useState(false);
   const [mapSource, setMapSource] = useState<MapSource>("osm");
+  const [regionFilter, setRegionFilter] = useState("");
 
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
   const [textInput, setTextInput] = useState("");
@@ -400,6 +401,7 @@ export default function Index() {
       source: mapSource,
       gaodeKey: gaodeKey.trim() || undefined,
       baiduKey: baiduKey.trim() || undefined,
+      regionFilter: regionFilter.trim() || undefined,
     };
 
     abortRef.current = new AbortController();
@@ -572,6 +574,22 @@ export default function Index() {
               {mapSource === "osm" && (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                   ✅ OpenStreetMap 无需 API Key，完全免费开放。
+                </div>
+              )}
+
+              {mapSource !== "osm" && (
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <MapPin className="h-3 w-3" /> 限定搜索区域（可选）
+                  </label>
+                  <Input
+                    value={regionFilter}
+                    onChange={(e) => setRegionFilter(e.target.value)}
+                    placeholder="例如：山东 或 济南市"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    填写后将强制在该区域内搜索，杜绝跨省误匹配
+                  </p>
                 </div>
               )}
             </CardContent>
