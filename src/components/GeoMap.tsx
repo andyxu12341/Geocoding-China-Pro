@@ -12,6 +12,7 @@ interface GeoMapProps {
   markers: MapMarker[];
   className?: string;
   autoFitDisabled?: boolean;
+  darkMode?: boolean;
 }
 
 export interface GeoMapHandle {
