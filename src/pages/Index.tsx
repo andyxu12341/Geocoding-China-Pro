@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig } from "@/utils/geocoding";
 import { exportCSV, exportGeoJSON, exportKML, exportMapPNG } from "@/utils/exportUtils";
-import { GeoMap, type MapMarker, type GeoMapHandle } from "@/components/GeoMap";
+import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor } from "@/components/GeoMap";
 
 const BATCH_SIZE = 20;
 
@@ -40,6 +40,13 @@ const SOURCE_LABELS: Record<MapSource, string> = {
   osm: "OpenStreetMap",
 };
 
+// D3-inspired distinct color palette
+const CATEGORY_PALETTE = [
+  "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+  "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
+  "#af7aa1", "#17becf", "#bcbd22", "#7f7f7f", "#e377c2",
+];
+
 function formatSeconds(s: number) {
   return s < 60 ? `${Math.round(s)} 秒` : `${Math.floor(s / 60)} 分 ${Math.round(s % 60)} 秒`;
 }
@@ -50,8 +57,8 @@ const StatsCard = ({ title, value, icon, color }: {
 }) => {
   const cm: Record<string, string> = {
     blue: "bg-primary/10 text-primary border-primary/20",
-    emerald: "bg-emerald-100 text-emerald-600 border-emerald-200",
-    rose: "bg-rose-100 text-rose-600 border-rose-200",
+    emerald: "bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+    rose: "bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-950 dark:text-rose-400 dark:border-rose-800",
   };
   return (
     <div className={cn("flex items-center gap-3 rounded-xl border p-4", cm[color])}>
@@ -68,40 +75,88 @@ const StatsCard = ({ title, value, icon, color }: {
 async function parseUploadFile(file: File): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
   const ext = file.name.split(".").pop()?.toLowerCase();
 
-  if (ext === "xlsx" || ext === "xls") {
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
-    const headers = json.length > 0 ? Object.keys(json[0]) : [];
-    return { headers, rows: json.map(r => {
-      const out: Record<string, string> = {};
-      headers.forEach(h => { out[h] = String(r[h] ?? ""); });
-      return out;
-    })};
-  }
+  try {
+    if (ext === "xlsx" || ext === "xls") {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
+      const headers = json.length > 0 ? Object.keys(json[0]) : [];
+      return {
+        headers,
+        rows: json
+          .map(r => {
+            const out: Record<string, string> = {};
+            headers.forEach(h => { out[h] = String(r[h] ?? ""); });
+            return out;
+          })
+          .filter(r => headers.some(h => r[h]?.trim())),
+      };
+    }
 
-  // CSV — try UTF-8 first, fallback GBK
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = reader.result as string;
-      Papa.parse<Record<string, string>>(text, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (res) => {
-          if (!res.meta.fields?.length) {
-            reject(new Error("无法识别 CSV 表头"));
-            return;
+    // CSV — try UTF-8 first, fallback GBK
+    return await new Promise<{ headers: string[]; rows: Record<string, string>[] }>((resolve, reject) => {
+      const tryParse = (encoding: string) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const text = reader.result as string;
+            Papa.parse<Record<string, string>>(text, {
+              header: true,
+              skipEmptyLines: "greedy",
+              complete: (res) => {
+                const fields = (res.meta.fields ?? []).filter(f => f.trim());
+                if (!fields.length) {
+                  if (encoding === "UTF-8") {
+                    tryParse("GBK");
+                    return;
+                  }
+                  reject(new Error("无法识别 CSV 表头"));
+                  return;
+                }
+                // Filter empty rows
+                const cleaned = (res.data ?? []).filter(row =>
+                  fields.some(f => (row[f] ?? "").trim())
+                );
+                resolve({ headers: fields, rows: cleaned });
+              },
+              error: () => {
+                if (encoding === "UTF-8") {
+                  tryParse("GBK");
+                } else {
+                  reject(new Error("CSV 解析失败"));
+                }
+              },
+            });
+          } catch {
+            if (encoding === "UTF-8") {
+              tryParse("GBK");
+            } else {
+              reject(new Error("CSV 解析异常"));
+            }
           }
-          resolve({ headers: res.meta.fields, rows: res.data });
-        },
-        error: () => reject(new Error("CSV 解析失败")),
-      });
-    };
-    // Try reading as UTF-8 first; if garbled, re-read as GBK
-    reader.readAsText(file, "UTF-8");
-  });
+        };
+        reader.onerror = () => reject(new Error("文件读取失败"));
+        reader.readAsText(file, encoding);
+      };
+      tryParse("UTF-8");
+    });
+  } catch (err) {
+    throw err instanceof Error ? err : new Error("文件解析失败");
+  }
+}
+
+function getSystemDarkMode() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function getInitialDarkMode(): boolean {
+  if (typeof window === "undefined") return false;
+  const stored = localStorage.getItem("theme");
+  if (stored === "dark") return true;
+  if (stored === "light") return false;
+  return getSystemDarkMode();
 }
 
 export default function Index() {
@@ -124,6 +179,10 @@ export default function Index() {
   const [selectedColumn, setSelectedColumn] = useState("");
   const [fileName, setFileName] = useState("");
 
+  // Category column
+  const [categoryColumn, setCategoryColumn] = useState("");
+  const [customColors, setCustomColors] = useState<Record<string, string>>({});
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [completed, setCompleted] = useState(0);
   const [total, setTotal] = useState(0);
@@ -141,18 +200,36 @@ export default function Index() {
   // Auto-fit control
   const [autoFitDisabled, setAutoFitDisabled] = useState(false);
 
-  // Dark mode
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("theme") === "dark";
-    }
-    return false;
+  // Dark mode with system sync
+  const [darkMode, setDarkMode] = useState(getInitialDarkMode);
+  const [userOverride, setUserOverride] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("theme") !== null;
   });
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
+    if (userOverride) {
+      localStorage.setItem("theme", darkMode ? "dark" : "light");
+    }
+  }, [darkMode, userOverride]);
+
+  // Listen to system theme changes
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => {
+      if (!userOverride) {
+        setDarkMode(e.matches);
+      }
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [userOverride]);
+
+  const toggleDarkMode = () => {
+    setUserOverride(true);
+    setDarkMode(prev => !prev);
+  };
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false);
@@ -171,6 +248,7 @@ export default function Index() {
       setInputMode("file");
       const guess = headers.find(f => /地址|address|位置|名称|name/i.test(f)) || headers[0];
       setSelectedColumn(guess);
+      setCategoryColumn("");
     } catch (err) {
       toast({ title: "解析失败", description: err instanceof Error ? err.message : "文件格式不正确", variant: "destructive" });
     }
@@ -213,9 +291,56 @@ export default function Index() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isProcessing]);
 
+  // Category unique values & color mapping
+  const categoryValues = useMemo(() => {
+    if (!categoryColumn || !fileData.length) return [];
+    const set = new Set<string>();
+    fileData.forEach(row => {
+      const v = row[categoryColumn]?.trim();
+      if (v) set.add(v);
+    });
+    return Array.from(set);
+  }, [categoryColumn, fileData]);
+
+  // Initialize default colors when category values change
+  useEffect(() => {
+    if (categoryValues.length === 0) return;
+    setCustomColors(prev => {
+      const next = { ...prev };
+      categoryValues.forEach((v, i) => {
+        if (!next[v]) next[v] = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length];
+      });
+      return next;
+    });
+  }, [categoryValues]);
+
+  // Build category-address mapping for markers
+  const addressCategoryMap = useMemo((): globalThis.Map<string, string> => {
+    if (!categoryColumn || !fileData.length) return new globalThis.Map();
+    const map = new globalThis.Map<string, string>();
+    fileData.forEach(row => {
+      const addr = row[selectedColumn]?.trim();
+      const cat = row[categoryColumn]?.trim();
+      if (addr && cat) map.set(addr, cat);
+    });
+    return map;
+  }, [categoryColumn, fileData, selectedColumn]);
+
   const mapMarkers: MapMarker[] = results
     .filter(r => r.status === "success" && r.lat && r.lng)
-    .map(r => ({ lat: parseFloat(r.lat!), lng: parseFloat(r.lng!), label: r.address }));
+    .map(r => ({
+      lat: parseFloat(r.lat!),
+      lng: parseFloat(r.lng!),
+      label: r.address,
+      category: addressCategoryMap.get(r.address),
+    }));
+
+  const categoryColorList: CategoryColor[] = useMemo(() => {
+    return categoryValues.map(v => ({
+      category: v,
+      color: customColors[v] || CATEGORY_PALETTE[0],
+    }));
+  }, [categoryValues, customColors]);
 
   const progress = total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
   const eta = (() => {
@@ -227,8 +352,7 @@ export default function Index() {
 
   const getAddresses = useCallback((): string[] => {
     if (inputMode === "text") {
-      const lines = textInput.split("\n").map(s => s.trim()).filter(Boolean);
-      return lines;
+      return textInput.split("\n").map(s => s.trim()).filter(Boolean);
     }
     if (!selectedColumn) return [];
     return fileData.map(row => row[selectedColumn]?.trim()).filter(Boolean) as string[];
@@ -264,6 +388,7 @@ export default function Index() {
       setFileName(file.name);
       const guess = headers.find(f => /地址|address|位置|名称|name/i.test(f)) || headers[0];
       setSelectedColumn(guess);
+      setCategoryColumn("");
     } catch (err) {
       toast({ title: "解析失败", description: err instanceof Error ? err.message : "文件格式不正确", variant: "destructive" });
     }
@@ -371,7 +496,7 @@ export default function Index() {
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center relative">
           <button
-            onClick={() => setDarkMode(!darkMode)}
+            onClick={toggleDarkMode}
             className="absolute right-0 top-0 rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             title={darkMode ? "切换亮色模式" : "切换暗色模式"}
           >
@@ -409,7 +534,7 @@ export default function Index() {
               </div>
 
               {mapSource === "osm" && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
                   ⚠️ Nominatim 严格限速 1 次/秒，大批量建议使用高德或百度。
                 </div>
               )}
@@ -445,7 +570,7 @@ export default function Index() {
               )}
 
               {mapSource === "osm" && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                   ✅ OpenStreetMap 无需 API Key，完全免费开放。
                 </div>
               )}
@@ -503,42 +628,79 @@ export default function Index() {
                 </div>
                 {fileHeaders.length > 0 && (
                   <>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                        📂 {fileName} — 选择地址列
-                      </label>
-                      <Select value={selectedColumn} onValueChange={setSelectedColumn}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <p className="mt-1 text-xs text-muted-foreground">已加载 {fileData.length} 行数据</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          📂 {fileName} — 选择地址列
+                        </label>
+                        <Select value={selectedColumn} onValueChange={setSelectedColumn}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <p className="mt-1 text-xs text-muted-foreground">已加载 {fileData.length} 行数据</p>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          🏷️ 选择类别列（可选）
+                        </label>
+                        <Select value={categoryColumn} onValueChange={setCategoryColumn}>
+                          <SelectTrigger><SelectValue placeholder="不使用类别" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">不使用类别</SelectItem>
+                            {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+
+                    {/* Category color editor */}
+                    {categoryColumn && categoryColumn !== "__none__" && categoryValues.length > 0 && (
+                      <div className="rounded-lg border p-3">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">🎨 类别颜色（点击色块自定义）</p>
+                        <div className="flex flex-wrap gap-2">
+                          {categoryValues.map(v => (
+                            <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent">
+                              <input
+                                type="color"
+                                value={customColors[v] || CATEGORY_PALETTE[0]}
+                                onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))}
+                                className="h-4 w-4 cursor-pointer border-0 p-0"
+                              />
+                              <span className="max-w-[100px] truncate">{v}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Preview table */}
-                    <div className="max-h-[200px] overflow-auto rounded-lg border">
-                      <Table>
-                        <TableHeader className="sticky top-0 z-10 bg-card">
-                          <TableRow>
-                            {fileHeaders.map(h => (
-                              <TableHead key={h} className={cn("text-xs", h === selectedColumn && "bg-primary/10 font-bold")}>{h}</TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {fileData.slice(0, 5).map((row, i) => (
-                            <TableRow key={i}>
+                    <div className="min-w-0 overflow-hidden rounded-lg border">
+                      <div className="max-h-[200px] w-full overflow-x-auto overflow-y-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 z-10 bg-card">
+                            <TableRow>
                               {fileHeaders.map(h => (
-                                <TableCell key={h} className={cn("text-xs", h === selectedColumn && "bg-primary/5 font-medium")}>
-                                  {row[h] ?? ""}
-                                </TableCell>
+                                <TableHead key={h} className={cn("whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/10 font-bold")}>{h}</TableHead>
                               ))}
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {fileData.slice(0, 5).map((row, i) => (
+                              <TableRow key={i}>
+                                {fileHeaders.map(h => (
+                                  <TableCell key={h} className={cn("whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/5 font-medium")}>
+                                    {row[h] ?? ""}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                       {fileData.length > 5 && (
-                        <p className="p-2 text-center text-xs text-muted-foreground">
+                        <p className="border-t p-2 text-center text-xs text-muted-foreground">
                           仅显示前 5 行，共 {fileData.length} 行
                         </p>
                       )}
@@ -608,7 +770,14 @@ export default function Index() {
           </CardHeader>
           <CardContent>
             <div ref={mapContainerRef} className="h-[400px] overflow-hidden rounded-xl border">
-              <GeoMap ref={geoMapRef} markers={mapMarkers} className="h-full w-full" autoFitDisabled={autoFitDisabled} darkMode={darkMode} />
+              <GeoMap
+                ref={geoMapRef}
+                markers={mapMarkers}
+                className="h-full w-full"
+                autoFitDisabled={autoFitDisabled}
+                darkMode={darkMode}
+                categoryColors={categoryColorList.length > 0 ? categoryColorList : undefined}
+              />
             </div>
           </CardContent>
         </Card>
@@ -640,29 +809,29 @@ export default function Index() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent className="overflow-hidden">
-                  <div className="max-h-96 overflow-auto rounded-lg border">
+                <CardContent className="min-w-0 overflow-hidden">
+                  <div className="max-h-[500px] w-full overflow-x-auto overflow-y-auto rounded-lg border">
                     <Table>
                       <TableHeader className="sticky top-0 z-10 bg-card">
                         <TableRow>
-                          <TableHead className="min-w-[180px]">地址</TableHead>
-                          <TableHead className="min-w-[100px]">经度</TableHead>
-                          <TableHead className="min-w-[100px]">纬度</TableHead>
-                          <TableHead className="min-w-[200px]">格式化地址</TableHead>
-                          <TableHead className="min-w-[70px]">状态</TableHead>
+                          <TableHead className="whitespace-nowrap">地址</TableHead>
+                          <TableHead className="whitespace-nowrap">经度</TableHead>
+                          <TableHead className="whitespace-nowrap">纬度</TableHead>
+                          <TableHead className="whitespace-nowrap">格式化地址</TableHead>
+                          <TableHead className="whitespace-nowrap">状态</TableHead>
                           <TableHead className="w-[60px]">操作</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {results.map((r, i) => (
                           <TableRow key={i}>
-                            <TableCell className="font-medium">{r.address}</TableCell>
-                            <TableCell className="font-mono text-xs">{r.lng ?? "-"}</TableCell>
-                            <TableCell className="font-mono text-xs">{r.lat ?? "-"}</TableCell>
+                            <TableCell className="whitespace-nowrap font-medium">{r.address}</TableCell>
+                            <TableCell className="whitespace-nowrap font-mono text-xs">{r.lng ?? "-"}</TableCell>
+                            <TableCell className="whitespace-nowrap font-mono text-xs">{r.lat ?? "-"}</TableCell>
                             <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">{r.formattedAddress ?? "-"}</TableCell>
-                            <TableCell>
+                            <TableCell className="whitespace-nowrap">
                               {r.status === "success" ? (
-                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">成功</Badge>
+                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-300">成功</Badge>
                               ) : (
                                 <Badge variant="destructive" className="text-xs">{r.error || "失败"}</Badge>
                               )}
