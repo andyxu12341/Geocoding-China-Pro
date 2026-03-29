@@ -34,7 +34,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const DELAY_MS: Record<MapSource, number> = {
   gaode: 340,
   baidu: 340,
-  osm: 1050,
+  osm: 1100,
 };
 
 // JSONP helper (for Baidu which blocks CORS)
@@ -223,7 +223,10 @@ async function geocodeBaidu(address: string, apiKey: string, region?: string): P
 async function geocodeOSM(address: string): Promise<GeocodeItem> {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&addressdetails=0`;
   const res = await fetch(url, {
-    headers: { "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8" },
+    headers: {
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
+    },
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -284,6 +287,11 @@ export async function geocodeBatch(
   const chunks: string[][] = [];
   for (let i = 0; i < addresses.length; i += batchSize) {
     chunks.push(addresses.slice(i, i + batchSize));
+  }
+
+  // Nominatim requires at least 1s between requests; add initial delay to avoid burst
+  if (config.source === "osm" && !signal?.aborted) {
+    await sleep(delay);
   }
 
   for (const chunk of chunks) {
