@@ -1,0 +1,154 @@
+{
+  "app": {
+    "title": "Geocoding Workstation",
+    "subtitle": "Pure frontend · Zero backend · Amap / Baidu / OSM batch geocoding · GeoJSON / KML / PNG export"
+  },
+  "settings": {
+    "title": "API Settings",
+    "mapSource": "Map Data Source",
+    "gaode": "Amap (Recommended, most accurate for China)",
+    "baidu": "Baidu Maps",
+    "osm": "OpenStreetMap (Nominatim, free)",
+    "osmWarning": "Nominatim rate limit: 1 req/sec. For large batches, use Amap or Baidu instead.",
+    "osmFree": "OpenStreetMap requires no API Key — completely free and open.",
+    "gaodeKey": "Amap Web Service Key",
+    "gaodeKeyPlaceholder": "Enter Amap Web Service API Key...",
+    "gaodeKeyHint": "Create a 'Web Service' type Key at Amap Open Platform",
+    "baiduKey": "Baidu Maps Browser AK",
+    "baiduKeyPlaceholder": "Enter Baidu Browser AK...",
+    "baiduKeyHint": "Create a Browser/JS type AK at Baidu Map Open Platform",
+    "regionFilter": "Limit Search Region (optional)",
+    "regionFilterOsm": "e.g. China, Beijing",
+    "regionFilterOther": "e.g. Shandong or Jinan City",
+    "regionFilterHintOsm": "Results will be constrained to this region",
+    "regionFilterHintOther": "Forces search within the region — prevents cross-province mismatches",
+    "history": "View History"
+  },
+  "input": {
+    "textTab": "Text Input",
+    "fileTab": "File Upload",
+    "textPlaceholder": "Palace Museum, Beijing\nOriental Pearl Tower, Shanghai\nCanton Tower, Guangzhou\nPing An Finance Center, Shenzhen\nChengdu Research Base of Giant Panda Breeding",
+    "textHint": "One address per line. Leave blank and click the button to try demo data.",
+    "fileDrag": "Click or drag to upload CSV / Excel file",
+    "fileHint": "Supports .csv / .xls / .xlsx",
+    "fileUploading": "Release to upload",
+    "addressCol": "Select address column",
+    "rowsLoaded": "{count} rows loaded",
+    "categoryCol": "Select category column (optional)",
+    "noCategory": "No category",
+    "categoryColors": "Category colors (click to customize)",
+    "previewRows": "Showing first 5 of {count} rows"
+  },
+  "convert": {
+    "start": "Start — {source} ({count} items)",
+    "stop": "Stop Conversion",
+    "areaMode": "Area Query Mode (use the query button above)"
+  },
+  "progress": {
+    "processing": "Processing...",
+    "done": "Done",
+    "remaining": "~{time} remaining",
+    "total": "Total",
+    "success": "Success",
+    "failed": "Failed"
+  },
+  "stats": {
+    "title": "Statistics",
+    "successRate": "Success Rate",
+    "categoryDist": "Category Distribution",
+    "count": "Count",
+    "uncategorized": "Uncategorized",
+    "tooltipCount": "items"
+  },
+  "map": {
+    "title": "Map",
+    "markers": "{count} markers",
+    "polygons": "{count} polygons",
+    "waiting": "Waiting for input..."
+  },
+  "results": {
+    "title": "Results",
+    "export": "Export",
+    "exportCSV": "Export CSV",
+    "exportGeoJSON": "Export GeoJSON",
+    "exportKML": "Export KML",
+    "exportPNG": "Export Map PNG",
+    "address": "Address",
+    "lng": "Longitude",
+    "lat": "Latitude",
+    "formatted": "Formatted Address",
+    "category": "Category",
+    "status": "Status",
+    "action": "Action",
+    "copyCoords": "Copy coordinates",
+    "select": "Select"
+  },
+  "toast": {
+    "parseError": "Parse failed",
+    "fileFormat": "File format is invalid",
+    "noAddress": "Please enter addresses",
+    "conversionDone": "Conversion complete",
+    "successCount": "{success} succeeded, {failed} failed.",
+    "conversionInterrupted": "Conversion interrupted",
+    "copied": "Copied",
+    "fileSaved": "File saved",
+    "screenshot": "Generating screenshot...",
+    "screenshotFail": "Screenshot failed",
+    "screenshotHint": "Switch to a standard map tile layer and try again",
+    "areaQuery": "Querying...",
+    "areaQueryDone": "Found {count} polygon results",
+    "areaQueryType": "Type: {type}",
+    "areaNoResult": "No results",
+    "areaNoResultHint": "No OSM polygon data found for '{keyword}'",
+    "areaQueryFail": "Query failed",
+    "historyLoaded": "History loaded",
+    "historyLoadedHint": "{count} results",
+    "noKeyword": "Please enter a keyword",
+    "candidateSelected": "Selected",
+    "cacheCleared": "Cache cleared",
+    "pleaseWait": "Please wait",
+    "unknownError": "Unknown error"
+  },
+  "cancel": {
+    "title": "Conversion Paused",
+    "processed": "Processed {total} items: {success} succeeded, {failed} failed.",
+    "remaining": "{count} items remaining.",
+    "confirm": "Cancel",
+    "resume": "Resume"
+  },
+  "history": {
+    "title": "History",
+    "description": "Last 20 conversion sessions, persisted across page refreshes.",
+    "total": "{count} records",
+    "noHistory": "No history yet",
+    "load": "Load",
+    "clearAll": "Clear All",
+    "close": "Close",
+    "success": "Success",
+    "failed": "Failed",
+    "total2": "{count} items"
+  },
+  "candidate": {
+    "title": "Select Best Match — {address}",
+    "description": "Found {count} candidates. Please choose the most accurate one:",
+    "cancel": "Cancel"
+  },
+  "areaQuery": {
+    "title": "OSM Area Query",
+    "desc": "Query building/residential/park/commercial/administrative polygons from OpenStreetMap",
+    "type": "Query Type",
+    "building": "Building",
+    "residential": "Residential",
+    "park": "Park / Scenic",
+    "commercial": "Commercial / Functional",
+    "administrative": "Administrative",
+    "keyword": "Keyword",
+    "keywordPlaceholder": "e.g. Beijing, Chaoyang District",
+    "query": "Query",
+    "rendered": "Rendered {count} polygons on map"
+  },
+  "theme": {
+    "light": "Switch to light mode",
+    "dark": "Switch to dark mode"
+  }
+}

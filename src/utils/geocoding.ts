@@ -46,6 +46,17 @@ export interface GeocodeItem {
   error?: string;
   category?: string;
   polygon?: number[][][]; // For area query results: [[[lng, lat], [lng, lat], ...]]
+  candidates?: GeocodeCandidate[]; // Multiple candidates for user to choose
+}
+
+export interface GeocodeCandidate {
+  lng: string;
+  lat: string;
+  formattedAddress: string;
+  province?: string;
+  city?: string;
+  district?: string;
+  level?: string;
 }
 
 export interface AreaResult {
@@ -65,6 +76,43 @@ export interface BatchProgress {
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ── Request cache (localStorage + TTL) ──
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function cacheGet(address: string, source: MapSource): GeocodeItem | null {
+  try {
+    const raw = localStorage.getItem(`gc:${source}:${address}`);
+    if (!raw) return null;
+    const { item, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL_MS) {
+      localStorage.removeItem(`gc:${source}:${address}`);
+      return null;
+    }
+    return item;
+  } catch {
+    return null;
+  }
+}
+
+function cacheSet(address: string, source: MapSource, item: GeocodeItem) {
+  if (item.status === "success") {
+    try {
+      localStorage.setItem(`gc:${source}:${address}`, JSON.stringify({ item, ts: Date.now() }));
+    } catch { /* storage full — ignore */ }
+  }
+}
+
+export function clearGeocodingCache() {
+  try {
+    const prefix = "gc:";
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
+    keys.forEach(k => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
+
+// ── In-flight deduplication ──
+const inflight = new Map<string, Promise<GeocodeItem>>();
 
 const DELAY_MS: Record<MapSource, number> = {
   gaode: 340,
@@ -149,8 +197,7 @@ function sanityCheck(
 // Gaode (Amap) — Primary engine: geocode API
 async function geocodeGaodePrimary(address: string, apiKey: string, region?: string): Promise<{
   item: GeocodeItem;
-  province?: string;
-  city?: string;
+  candidates: GeocodeCandidate[];
 }> {
   let url = `https://restapi.amap.com/v3/geocode/geo?key=${encodeURIComponent(apiKey)}&address=${encodeURIComponent(address)}&output=json`;
   if (region) url += `&city=${encodeURIComponent(region)}`;
@@ -163,24 +210,37 @@ async function geocodeGaodePrimary(address: string, apiKey: string, region?: str
       formatted_address: string;
       province: string;
       city: string;
+      district?: string;
+      level?: string;
     }>;
   };
   if (data.status !== "1" || !data.geocodes?.length) {
-    return {
-      item: { address, status: "failed", source: "gaode", error: data.info || "匹配失败: 未找到有效坐标" },
-    };
+    return { item: { address, status: "failed", source: "gaode", error: data.info || "匹配失败: 未找到有效坐标" }, candidates: [] };
   }
-  const g = data.geocodes[0];
-  if (!g.location) {
-    return {
-      item: { address, status: "failed", source: "gaode", error: "匹配失败: 返回坐标为空" },
-    };
+
+  const candidates: GeocodeCandidate[] = data.geocodes
+    .filter(g => g.location)
+    .map(g => {
+      const [lng, lat] = g.location.split(",");
+      return {
+        lng,
+        lat,
+        formattedAddress: g.formatted_address,
+        province: g.province,
+        city: typeof g.city === "string" ? g.city : undefined,
+        district: g.district,
+        level: g.level,
+      };
+    });
+
+  if (candidates.length === 0) {
+    return { item: { address, status: "failed", source: "gaode", error: "匹配失败: 返回坐标为空" }, candidates: [] };
   }
-  const [lng, lat] = g.location.split(",");
+
+  const top = candidates[0];
   return {
-    item: { address, lng, lat, formattedAddress: g.formatted_address, source: "gaode", status: "success" },
-    province: g.province,
-    city: typeof g.city === "string" ? g.city : undefined,
+    item: { address, lng: top.lng, lat: top.lat, formattedAddress: top.formattedAddress, source: "gaode", status: "success", candidates },
+    candidates,
   };
 }
 
@@ -216,10 +276,14 @@ async function geocodeGaode(address: string, apiKey: string, region?: string): P
   try {
     const primary = await geocodeGaodePrimary(address, apiKey, region);
     if (primary.item.status === "success") {
-      const plausible = sanityCheck(hint, primary.province, primary.city, primary.item.formattedAddress);
+      const plausible = sanityCheck(hint, primary.candidates[0]?.province, primary.candidates[0]?.city, primary.item.formattedAddress);
       if (plausible) {
         return primary.item;
       }
+    }
+    // Return with candidates even if failed sanity check
+    if (primary.candidates.length > 0) {
+      return primary.item;
     }
   } catch {
     // Primary threw — fall through
@@ -294,8 +358,14 @@ function friendlyError(raw: string): string {
 }
 
 async function geocodeOne(address: string, config: GeocodingConfig): Promise<GeocodeItem> {
+  const cacheKey = `${config.source}:${address}:${config.gaodeKey ?? config.baiduKey ?? ""}`;
+  if (inflight.has(cacheKey)) {
+    return inflight.get(cacheKey)!;
+  }
+  const cached = cacheGet(address, config.source);
+  if (cached) return cached;
   const region = config.regionFilter?.trim() || undefined;
-  return withRetry(async () => {
+  const promise = withRetry(async () => {
     switch (config.source) {
       case "gaode":
         if (!config.gaodeKey) throw new Error("缺少高德 API Key");
@@ -307,6 +377,14 @@ async function geocodeOne(address: string, config: GeocodingConfig): Promise<Geo
         return geocodeOSM(address, region);
     }
   });
+  inflight.set(cacheKey, promise);
+  try {
+    const result = await promise;
+    cacheSet(address, config.source, result);
+    return result;
+  } finally {
+    inflight.delete(cacheKey);
+  }
 }
 
 export async function geocodeBatch(
@@ -367,14 +445,6 @@ export async function geocodeBatch(
 
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
-const AREA_QUERIES: Record<AreaQueryType, string> = {
-  building: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["building"]["name"](area.searchArea)(if: t["name"] != ""););out body geom;`,
-  residential: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["landuse"="residential"](area.searchArea);relation["landuse"="residential"](area.searchArea););out body geom;`,
-  park: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["leisure"="park"](area.searchArea);way["landuse"="grass"]["name"](area.searchArea);way["natural"="park"](area.searchArea);relation["leisure"="park"](area.searchArea););out body geom;`,
-  commercial: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["landuse"="commercial"](area.searchArea);way["landuse"="retail"](area.searchArea);way["office"](area.searchArea););out body geom;`,
-  administrative: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(relation["boundary"="administrative"]["name"](area.searchArea);way["boundary"="administrative"](area.searchArea););out body geom;`,
-};
-
 interface OverpassElement {
   type: "node" | "way" | "relation";
   id: number;
@@ -389,14 +459,9 @@ interface OverpassResponse {
 }
 
 function buildOverpassQuery(keyword: string, areaType: AreaQueryType): string {
-  // Overpass QL query: search within a named area
-  const escaped = keyword.replace(/"/g, '\\"');
-  const base = AREA_QUERIES[areaType];
-  // Inject keyword as area name constraint
-  const areaConstraint = `[area["name"~"${escaped}"]]->.targetArea;`;
+  const escaped = keyword.replace(/([\\[\]()+*?|])/g, "\\$1").replace(/"/g, '\\"');
   const areaTypeFilter = getAreaTypeFilter(areaType);
-
-  return `[out:json][timeout:60];${areaConstraint}${areaTypeFilter}(area.targetArea);out body geom;`;
+  return `[out:json][timeout:60];area["name"~"${escaped}"]->.targetArea;${areaTypeFilter}(area.targetArea);out body geom;`;
 }
 
 function getAreaTypeFilter(type: AreaQueryType): string {
@@ -432,11 +497,20 @@ export async function queryOSMArea(
       "Content-Type": "application/x-www-form-urlencoded",
       "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
     },
-    body: `data=${encodeURIComponent(query)}`,
+    body: new URLSearchParams({ data: query }).toString(),
     signal: signal || AbortSignal.timeout(60000),
   });
 
-  if (!res.ok) throw new Error(`Overpass API 错误: HTTP ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 400) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Overpass 查询语法错误（HTTP 400）: ${text.slice(0, 200)}`);
+    }
+    if (res.status === 429) {
+      throw new Error("Overpass API 请求过于频繁，请稍后再试（HTTP 429）");
+    }
+    throw new Error(`Overpass API 错误: HTTP ${res.status}`);
+  }
   const data = await res.json() as OverpassResponse;
 
   const results: AreaResult[] = [];

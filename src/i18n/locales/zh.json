@@ -1,0 +1,154 @@
+{
+  "app": {
+    "title": "空间数据工作站",
+    "subtitle": "纯前端 · 零后端 · 高德 / 百度 / OpenStreetMap 三源批量地理编码 · GeoJSON / KML / PNG 导出"
+  },
+  "settings": {
+    "title": "API 设置",
+    "mapSource": "地图数据源",
+    "gaode": "高德地图（推荐，国内最准）",
+    "baidu": "百度地图",
+    "osm": "OpenStreetMap（Nominatim，免费）",
+    "osmWarning": "Nominatim 严格限速 1 次/秒，大批量建议使用高德或百度。",
+    "osmFree": "OpenStreetMap 无需 API Key，完全免费开放。",
+    "gaodeKey": "高德 Web 服务 Key",
+    "gaodeKeyPlaceholder": "输入高德 Web 服务 API Key...",
+    "gaodeKeyHint": "在高德开放平台创建「Web 服务」类型 Key",
+    "baiduKey": "百度地图浏览器端 AK",
+    "baiduKeyPlaceholder": "输入百度地图 Browser 端 AK...",
+    "baiduKeyHint": "在百度地图开放平台创建 Browser/JS 类型 AK",
+    "regionFilter": "限定搜索区域（可选）",
+    "regionFilterOsm": "例如：China、Beijing",
+    "regionFilterOther": "例如：山东 或 济南市",
+    "regionFilterHintOsm": "填写后将强制在该区域搜索",
+    "regionFilterHintOther": "填写后将强制在该区域内搜索，杜绝跨省误匹配",
+    "history": "查看历史记录"
+  },
+  "input": {
+    "textTab": "文本粘贴",
+    "fileTab": "文件上传",
+    "textPlaceholder": "北京故宫\n上海东方明珠\n广州塔\n深圳平安金融中心\n成都大熊猫繁育研究基地",
+    "textHint": "每行一个地址。留空直接点击按钮可体验 Demo 数据。",
+    "fileDrag": "点击或拖拽上传 CSV / Excel 文件",
+    "fileHint": "支持 .csv / .xls / .xlsx",
+    "fileUploading": "松开鼠标即可上传",
+    "addressCol": "选择地址列",
+    "rowsLoaded": "已加载 {count} 行数据",
+    "categoryCol": "选择类别列（可选）",
+    "noCategory": "不使用类别",
+    "categoryColors": "类别颜色（点击色块自定义）",
+    "previewRows": "仅显示前 5 行，共 {count} 行"
+  },
+  "convert": {
+    "start": "开始转换 — {source}（{count} 条）",
+    "stop": "停止转换",
+    "areaMode": "面域查询模式（请使用上方查询按钮）"
+  },
+  "progress": {
+    "processing": "处理中...",
+    "done": "完成",
+    "remaining": "预计剩余 {time}",
+    "total": "总计",
+    "success": "成功",
+    "failed": "失败"
+  },
+  "stats": {
+    "title": "统计图表",
+    "successRate": "成功率",
+    "categoryDist": "类别分布",
+    "count": "数量",
+    "uncategorized": "未分类",
+    "tooltipCount": "条"
+  },
+  "map": {
+    "title": "地理底图",
+    "markers": "{count} 个坐标点",
+    "polygons": "{count} 个面数据",
+    "waiting": "等待地址输入..."
+  },
+  "results": {
+    "title": "转换结果",
+    "export": "导出",
+    "exportCSV": "导出 CSV",
+    "exportGeoJSON": "导出 GeoJSON",
+    "exportKML": "导出 KML",
+    "exportPNG": "导出地图 PNG",
+    "address": "地址",
+    "lng": "经度",
+    "lat": "纬度",
+    "formatted": "格式化地址",
+    "category": "类别",
+    "status": "状态",
+    "action": "操作",
+    "copyCoords": "复制坐标",
+    "select": "选择"
+  },
+  "toast": {
+    "parseError": "解析失败",
+    "fileFormat": "文件格式不正确",
+    "noAddress": "请输入地址",
+    "conversionDone": "转换完成",
+    "successCount": "成功 {success} 条，失败 {failed} 条。",
+    "conversionInterrupted": "转换中断",
+    "copied": "已复制",
+    "fileSaved": "文件已保存",
+    "screenshot": "正在生成截图...",
+    "screenshotFail": "截图失败",
+    "screenshotHint": "请切换至标准地图图层后重试",
+    "areaQuery": "查询中...",
+    "areaQueryDone": "找到 {count} 个面数据",
+    "areaQueryType": "类型：{type}",
+    "areaNoResult": "未找到结果",
+    "areaNoResultHint": "在 OSM 中未找到「{keyword}」相关的面数据",
+    "areaQueryFail": "查询失败",
+    "historyLoaded": "已加载历史记录",
+    "historyLoadedHint": "{count} 条结果",
+    "noKeyword": "请输入关键词",
+    "candidateSelected": "已选择",
+    "cacheCleared": "缓存已清除",
+    "pleaseWait": "请稍候",
+    "unknownError": "未知错误"
+  },
+  "cancel": {
+    "title": "转换已暂停",
+    "processed": "已处理 {total} 条，其中成功 {success} 条，失败 {failed} 条。",
+    "remaining": "剩余 {count} 条未处理。",
+    "confirm": "确认取消",
+    "resume": "继续转换"
+  },
+  "history": {
+    "title": "历史记录",
+    "description": "最近 20 次转换记录，刷新页面后保留。",
+    "total": "共 {count} 条记录",
+    "noHistory": "暂无历史记录",
+    "load": "加载",
+    "clearAll": "清空全部",
+    "close": "关闭",
+    "success": "成功",
+    "failed": "失败",
+    "total2": "共 {count} 条"
+  },
+  "candidate": {
+    "title": "选择最优匹配 — {address}",
+    "description": "找到 {count} 个候选结果，请选择最准确的一个：",
+    "cancel": "取消"
+  },
+  "areaQuery": {
+    "title": "面域查询（OSM）",
+    "desc": "从 OpenStreetMap 查询建筑物/地块轮廓面数据",
+    "type": "查询类型",
+    "building": "建筑",
+    "residential": "住宅区",
+    "park": "景区/公园",
+    "commercial": "功能区/商业",
+    "administrative": "行政区",
+    "keyword": "关键词",
+    "keywordPlaceholder": "例如：北京市、朝阳区",
+    "query": "查询",
+    "rendered": "已在地图上渲染 {count} 个面数据"
+  },
+  "theme": {
+    "light": "切换亮色模式",
+    "dark": "切换暗色模式"
+  }
+}
