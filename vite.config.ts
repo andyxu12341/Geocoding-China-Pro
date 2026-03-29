@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "./", // Relative paths work on all platforms (Vercel, GitHub Pages, Netlify, etc.)
+  base: process.env.VITE_DEPLOY_TARGET === "github" ? "./" : "/",
   server: {
     host: "::",
     port: 8080,
