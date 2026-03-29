@@ -1,7 +1,9 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.chinatmsproviders";
+import "leaflet-draw";
+import "leaflet-draw/dist/leaflet.draw.css";
 
 export interface MapMarker {
   lat: number;
@@ -35,6 +37,10 @@ interface GeoMapProps {
 export interface GeoMapHandle {
   getMap: () => L.Map | null;
   getZoom: () => number;
+  getBounds: () => L.LatLngBounds | null;
+  startDrawRect: (onDone: (bounds: L.LatLngBounds) => void) => void;
+  startDrawPolygon: (onDone: (latlngs: L.LatLng[]) => void) => void;
+  cancelDraw: () => void;
 }
 
 const OSM_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -52,13 +58,59 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const polygonLayerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
+  const drawnItemsRef = useRef<L.Control | null>(null);
   const osmLayerRef = useRef<L.TileLayer | null>(null);
   const darkLayerRef = useRef<L.TileLayer | null>(null);
   const legendRef = useRef<L.Control | null>(null);
 
   const POLYGON_COLORS = ["#e15759", "#4e79a7", "#59a14f", "#f28e2b", "#b07aa1", "#76b7b2", "#edc948", "#ff9da7"];
 
-  useImperativeHandle(ref, () => ({ getMap: () => mapRef.current, getZoom: () => mapRef.current?.getZoom() ?? 0 }));
+  useImperativeHandle(ref, () => ({
+    getMap: () => mapRef.current,
+    getZoom: () => mapRef.current?.getZoom() ?? 0,
+    getBounds: () => mapRef.current?.getBounds() ?? null,
+    startDrawRect: (onDone) => {
+      const map = mapRef.current;
+      if (!map) return;
+      if (drawnItemsRef.current) map.removeControl(drawnItemsRef.current);
+      const drawnItems = new L.FeatureGroup();
+      map.addLayer(drawnItems);
+      drawnItemsRef.current = drawnItems as unknown as L.Control;
+      const rect = new L.Draw.Rectangle(map, {
+        shapeOptions: { color: "#6366f1", weight: 2, fillOpacity: 0.2 },
+      });
+      rect.enable();
+      map.once("draw:created", (e: L.LeafletEvent) => {
+        const layer = (e as L.DrawEvents.Created).layer as L.Rectangle;
+        drawnItems.addLayer(layer);
+        onDone(layer.getBounds());
+      });
+    },
+    startDrawPolygon: (onDone) => {
+      const map = mapRef.current;
+      if (!map) return;
+      if (drawnItemsRef.current) map.removeControl(drawnItemsRef.current);
+      const drawnItems = new L.FeatureGroup();
+      map.addLayer(drawnItems);
+      drawnItemsRef.current = drawnItems as unknown as L.Control;
+      const poly = new L.Draw.Polygon(map, {
+        shapeOptions: { color: "#f59e0b", weight: 2, fillOpacity: 0.2 },
+        allowIntersection: false,
+      });
+      poly.enable();
+      map.once("draw:created", (e: L.LeafletEvent) => {
+        const layer = (e as L.DrawEvents.Created).layer as L.Polygon;
+        drawnItems.addLayer(layer);
+        onDone(layer.getLatLngs()[0] as L.LatLng[]);
+      });
+    },
+    cancelDraw: () => {
+      const map = mapRef.current;
+      if (!map) return;
+      if (drawnItemsRef.current) map.removeControl(drawnItemsRef.current);
+      drawnItemsRef.current = null;
+    },
+  }));
 
   useEffect(() => {
     const el = containerRef.current;

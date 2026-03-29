@@ -8,6 +8,7 @@ import {
   Play, Download, CheckCircle2, XCircle, Loader2,
   Map, Settings, StopCircle, ChevronDown, Copy, Sun, Moon, History, Trash2, RotateCcw, Clock,
 } from "lucide-react";
+import { AreaQueryPanel } from "@/components/AreaQueryPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
 
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, queryOSMArea, type AreaResult, type AreaQueryType, type GeocodeCandidate, AREA_TYPE_LABELS } from "@/utils/geocoding";
+import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
 import { exportCSV, exportGeoJSON, exportKML, exportMapPNG } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
 
@@ -174,6 +174,7 @@ export default function Index() {
   const [showBaidu, setShowBaidu] = useState(false);
   const [mapSource, setMapSource] = useState<MapSource>("osm");
   const [regionFilter, setRegionFilter] = useState("");
+  const [appMode, setAppMode] = useState<"geocoding" | "polygon">("geocoding");
 
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
   const [textInput, setTextInput] = useState("");
@@ -258,12 +259,7 @@ export default function Index() {
   // Auto-fit control
   const [autoFitDisabled, setAutoFitDisabled] = useState(false);
 
-  // OSM area query
-  const [queryMode, setQueryMode] = useState<"point" | "area">("point");
-  const [areaKeyword, setAreaKeyword] = useState("");
-  const [areaType, setAreaType] = useState<AreaQueryType>("building");
   const [areaResults, setAreaResults] = useState<AreaResult[]>([]);
-  const [isQueryingArea, setIsQueryingArea] = useState(false);
 
   // Dark mode with system sync
   const [darkMode, setDarkMode] = useState(getInitialDarkMode);
@@ -431,7 +427,7 @@ export default function Index() {
 
   const addressCount = getAddresses().length;
   const keyMissing = (mapSource === "gaode" && !gaodeKey.trim()) || (mapSource === "baidu" && !baiduKey.trim());
-  const canStart = !keyMissing && !isProcessing && queryMode === "point";
+  const canStart = !keyMissing && !isProcessing;
 
   const startTimer = (t0: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -541,38 +537,6 @@ export default function Index() {
     runGeocoding(addresses);
   };
 
-  const handleAreaQuery = async () => {
-    const kw = areaKeyword.trim();
-    if (!kw) {
-      toast({ title: t("toast.noKeyword"), variant: "destructive" });
-      return;
-    }
-    const zoom = geoMapRef.current?.getZoom() ?? 0;
-    if (zoom < 15) {
-      toast({ title: t("toast.zoomTooLow"), variant: "destructive" });
-      return;
-    }
-    setIsQueryingArea(true);
-    setAreaResults([]);
-    try {
-      const results = await queryOSMArea(kw, areaType);
-      setAreaResults(results);
-        if (results.length === 0) {
-          toast({ title: t("toast.areaNoResult"), description: t("toast.areaNoResultHint", { keyword: kw }) });
-        } else {
-          toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
-        }
-    } catch (err) {
-        toast({
-        title: t("toast.areaQueryFail"),
-        description: err instanceof Error ? err.message : t("toast.areaQueryFail"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsQueryingArea(false);
-    }
-  };
-
   const handleStop = () => {
     abortRef.current?.abort();
     stopTimer();
@@ -642,310 +606,268 @@ export default function Index() {
           <p className="mt-2 text-sm text-muted-foreground">{t("app.subtitle")}</p>
         </motion.div>
 
-        {/* Settings + Input */}
-        <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-          {/* Settings */}
-          <Card>
-            <CardHeader className="pb-3">
+        {/* App Mode Tabs */}
+        <Tabs value={appMode} onValueChange={(v) => setAppMode(v as "geocoding" | "polygon")} className="mb-6">
+          <TabsList className="w-full grid grid-cols-2 mb-4">
+            <TabsTrigger value="geocoding" className="gap-2">
+              <MapPin className="h-4 w-4" /> {t("tabs.geocoding")}
+            </TabsTrigger>
+            <TabsTrigger value="polygon" className="gap-2">
+              <Map className="h-4 w-4" /> {t("tabs.polygon")}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab A: Point Geocoding */}
+          <TabsContent value="geocoding" className="space-y-0">
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+              {/* Settings */}
+              <Card>
+                <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Settings className="h-4 w-4" /> {t("settings.title")}
                   </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("settings.mapSource")}</label>
-                <Select value={mapSource} onValueChange={(v) => setMapSource(v as MapSource)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gaode">{t("settings.gaode")}</SelectItem>
-                    <SelectItem value="baidu">{t("settings.baidu")}</SelectItem>
-                    <SelectItem value="osm">{t("settings.osm")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border bg-accent/40 px-3 py-2">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-medium">{t("areaQuery.title")}</span>
-                  <span className="text-xs text-muted-foreground">{t("areaQuery.desc")}</span>
-                </div>
-                <Switch
-                  checked={queryMode === "area"}
-                  onCheckedChange={(checked) => {
-                    setQueryMode(checked ? "area" : "point");
-                    setAreaResults([]);
-                  }}
-                />
-              </div>
-
-              {queryMode === "area" && (
-                <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("areaQuery.type")}</label>
-                    <Select value={areaType} onValueChange={(v) => setAreaType(v as AreaQueryType)}>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("settings.mapSource")}</label>
+                    <Select value={mapSource} onValueChange={(v) => setMapSource(v as MapSource)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="building">🏢 {t("areaQuery.building")}</SelectItem>
-                        <SelectItem value="residential">🏘️ {t("areaQuery.residential")}</SelectItem>
-                        <SelectItem value="park">🏞️ {t("areaQuery.park")}</SelectItem>
-                        <SelectItem value="commercial">🏬 {t("areaQuery.commercial")}</SelectItem>
-                        <SelectItem value="administrative">🏛️ {t("areaQuery.administrative")}</SelectItem>
+                        <SelectItem value="gaode">{t("settings.gaode")}</SelectItem>
+                        <SelectItem value="baidu">{t("settings.baidu")}</SelectItem>
+                        <SelectItem value="osm">{t("settings.osm")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("areaQuery.keyword")}</label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={areaKeyword}
-                        onChange={(e) => setAreaKeyword(e.target.value)}
-                        placeholder={t("areaQuery.keywordPlaceholder")}
-                        className="flex-1"
-                        onKeyDown={(e) => e.key === "Enter" && handleAreaQuery()}
-                      />
-                      <Button onClick={handleAreaQuery} disabled={isQueryingArea} size="default">
-                        {isQueryingArea ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("toast.areaQuery")}</> : <><Play className="h-4 w-4" /> {t("areaQuery.query")}</>}
-                      </Button>
+
+                  {mapSource === "osm" && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      ⚠️ {t("settings.osmWarning")}
                     </div>
-                  </div>
-                  {areaResults.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      ✅ {t("areaQuery.rendered", { count: areaResults.length })}
-                    </p>
                   )}
-                </div>
-              )}
 
-                {mapSource === "osm" && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                    ⚠️ {t("settings.osmWarning")}
-                  </div>
-                )}
+                  {mapSource === "gaode" && (
+                    <div>
+                      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <Key className="h-3 w-3" /> {t("settings.gaodeKey")}
+                      </label>
+                      <div className="relative">
+                        <Input type={showGaode ? "text" : "password"} value={gaodeKey} onChange={(e) => setGaodeKey(e.target.value)} placeholder={t("settings.gaodeKeyPlaceholder")} className="pr-10" />
+                        <button type="button" onClick={() => setShowGaode(!showGaode)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
+                          {showGaode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{t("settings.gaodeKeyHint")}</p>
+                    </div>
+                  )}
 
-              {mapSource === "gaode" && (
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <Key className="h-3 w-3" /> {t("settings.gaodeKey")}
-                  </label>
-                  <div className="relative">
-                    <Input type={showGaode ? "text" : "password"} value={gaodeKey} onChange={(e) => setGaodeKey(e.target.value)} placeholder={t("settings.gaodeKeyPlaceholder")} className="pr-10" />
-                    <button type="button" onClick={() => setShowGaode(!showGaode)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                      {showGaode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{t("settings.gaodeKeyHint")}</p>
-                </div>
-              )}
+                  {mapSource === "baidu" && (
+                    <div>
+                      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <Key className="h-3 w-3" /> {t("settings.baiduKey")}
+                      </label>
+                      <div className="relative">
+                        <Input type={showBaidu ? "text" : "password"} value={baiduKey} onChange={(e) => setBaiduKey(e.target.value)} placeholder={t("settings.baiduKeyPlaceholder")} className="pr-10" />
+                        <button type="button" onClick={() => setShowBaidu(!showBaidu)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
+                          {showBaidu ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{t("settings.baiduKeyHint")}</p>
+                    </div>
+                  )}
 
-              {mapSource === "baidu" && (
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <Key className="h-3 w-3" /> {t("settings.baiduKey")}
-                  </label>
-                  <div className="relative">
-                    <Input type={showBaidu ? "text" : "password"} value={baiduKey} onChange={(e) => setBaiduKey(e.target.value)} placeholder={t("settings.baiduKeyPlaceholder")} className="pr-10" />
-                    <button type="button" onClick={() => setShowBaidu(!showBaidu)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                      {showBaidu ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{t("settings.baiduKeyHint")}</p>
-                </div>
-              )}
+                  {mapSource === "osm" && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      ✅ {t("settings.osmFree")}
+                    </div>
+                  )}
 
-              {mapSource === "osm" && (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                    ✅ {t("settings.osmFree")}
-                  </div>
-              )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 w-full"
-                onClick={() => { setHistoryList(loadHistory()); setShowHistoryDialog(true); }}
-              >
-                <History className="h-3.5 w-3.5" /> {t("settings.history")}
-              </Button>
-
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <MapPin className="h-3 w-3" /> {t("settings.regionFilter")}
-                </label>
-                <Input
-                  value={regionFilter}
-                  onChange={(e) => setRegionFilter(e.target.value)}
-                  placeholder={mapSource === "osm" ? t("settings.regionFilterOsm") : t("settings.regionFilterOther")}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {mapSource === "osm" ? t("settings.regionFilterHintOsm") : t("settings.regionFilterHintOther")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Data Input */}
-          <div className="min-w-0 w-full overflow-hidden">
-            <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
-              <TabsList className="w-full">
-                <TabsTrigger value="text" className="flex-1 gap-1.5">
-                  <FileText className="h-4 w-4" /> {t("input.textTab")}
-                </TabsTrigger>
-                <TabsTrigger value="file" className="flex-1 gap-1.5">
-                  <UploadCloud className="h-4 w-4" /> {t("input.fileTab")}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="text" className="mt-3">
-                <Textarea
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  placeholder={DEMO_ADDRESSES}
-                  className="min-h-[200px] resize-y"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("input.textHint")}
-                </p>
-              </TabsContent>
-              <TabsContent value="file" className="mt-3">
-                <div className="min-w-0 w-full space-y-3 overflow-hidden">
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={handleDragOver}
-                    onDragEnter={handleDragEnter}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={cn(
-                      "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors",
-                      isDragging
-                        ? "border-primary bg-primary/10"
-                        : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
-                    )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 w-full"
+                    onClick={() => { setHistoryList(loadHistory()); setShowHistoryDialog(true); }}
                   >
-                    <UploadCloud className={cn("mb-2 h-8 w-8", isDragging ? "text-primary" : "text-muted-foreground")} />
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {isDragging ? t("input.fileUploading") : t("input.fileDrag")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{t("input.fileHint")}</p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                      className="hidden"
-                      onChange={handleFileUpload}
+                    <History className="h-3.5 w-3.5" /> {t("settings.history")}
+                  </Button>
+
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <MapPin className="h-3 w-3" /> {t("settings.regionFilter")}
+                    </label>
+                    <Input
+                      value={regionFilter}
+                      onChange={(e) => setRegionFilter(e.target.value)}
+                      placeholder={mapSource === "osm" ? t("settings.regionFilterOsm") : t("settings.regionFilterOther")}
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {mapSource === "osm" ? t("settings.regionFilterHintOsm") : t("settings.regionFilterHintOther")}
+                    </p>
                   </div>
-                  {fileHeaders.length > 0 && (
-                    <>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                              📂 {fileName} — {t("input.addressCol")}
-                            </label>
-                            <Select value={selectedColumn} onValueChange={setSelectedColumn}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <p className="mt-1 text-xs text-muted-foreground">{t("input.rowsLoaded", { count: fileData.length })}</p>
-                          </div>
-                          <div>
-                            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                              🏷️ {t("input.categoryCol")}
-                            </label>
-                            <Select value={categoryColumn} onValueChange={setCategoryColumn}>
-                              <SelectTrigger><SelectValue placeholder={t("input.noCategory")} /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">{t("input.noCategory")}</SelectItem>
-                                {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                      </div>
+                </CardContent>
+              </Card>
 
-                      {/* Category color editor */}
-                      {categoryColumn && categoryColumn !== "__none__" && categoryValues.length > 0 && (
-                        <div className="rounded-lg border p-3">
-                          <p className="mb-2 text-xs font-medium text-muted-foreground">🎨 {t("input.categoryColors")}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {categoryValues.map(v => (
-                              <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent">
-                                <input
-                                  type="color"
-                                  value={customColors[v] || CATEGORY_PALETTE[0]}
-                                  onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))}
-                                  className="h-4 w-4 cursor-pointer border-0 p-0"
-                                />
-                                <span className="max-w-[100px] truncate">{v}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Preview table */}
-                      <div className="min-w-0 w-full overflow-hidden">
-                        <Table
-                          className="w-full whitespace-nowrap text-left text-sm"
-                          containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded-md"
-                        >
-                          <TableHeader className="sticky top-0 z-10 bg-card">
-                            <TableRow>
-                              {fileHeaders.map(h => (
-                                <TableHead
-                                  key={h}
-                                  title={h}
-                                  className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/10 font-bold")}
-                                >
-                                  {h}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {fileData.slice(0, 5).map((row, i) => (
-                              <TableRow key={i}>
-                                {fileHeaders.map(h => (
-                                  <TableCell
-                                    key={h}
-                                    title={String(row[h] ?? "")}
-                                    className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/5 font-medium")}
-                                  >
-                                    {row[h] ?? ""}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        {fileData.length > 5 && (
-                          <p className="pt-2 text-center text-xs text-muted-foreground">
-                            {t("input.previewRows", { count: fileData.length })}
-                          </p>
+              {/* Data Input */}
+              <div className="min-w-0 w-full overflow-hidden">
+                <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="text" className="flex-1 gap-1.5">
+                      <FileText className="h-4 w-4" /> {t("input.textTab")}
+                    </TabsTrigger>
+                    <TabsTrigger value="file" className="flex-1 gap-1.5">
+                      <UploadCloud className="h-4 w-4" /> {t("input.fileTab")}
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="text" className="mt-3">
+                    <Textarea
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      placeholder={DEMO_ADDRESSES}
+                      className="min-h-[200px] resize-y"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t("input.textHint")}
+                    </p>
+                  </TabsContent>
+                  <TabsContent value="file" className="mt-3">
+                    <div className="min-w-0 w-full space-y-3 overflow-hidden">
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={handleDragOver}
+                        onDragEnter={handleDragEnter}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={cn(
+                          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors",
+                          isDragging
+                            ? "border-primary bg-primary/10"
+                            : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
                         )}
+                      >
+                        <UploadCloud className={cn("mb-2 h-8 w-8", isDragging ? "text-primary" : "text-muted-foreground")} />
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {isDragging ? t("input.fileUploading") : t("input.fileDrag")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{t("input.fileHint")}</p>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                        />
                       </div>
-                    </>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+                      {fileHeaders.length > 0 && (
+                        <>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                                  📂 {fileName} — {t("input.addressCol")}
+                                </label>
+                                <Select value={selectedColumn} onValueChange={setSelectedColumn}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                                <p className="mt-1 text-xs text-muted-foreground">{t("input.rowsLoaded", { count: fileData.length })}</p>
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                                  🏷️ {t("input.categoryCol")}
+                                </label>
+                                <Select value={categoryColumn} onValueChange={setCategoryColumn}>
+                                  <SelectTrigger><SelectValue placeholder={t("input.noCategory")} /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none__">{t("input.noCategory")}</SelectItem>
+                                    {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                          </div>
 
-        {/* Convert Button */}
-        <div className="mb-6">
-          {isProcessing ? (
-            <Button variant="destructive" size="lg" className="w-full gap-2" onClick={handleStop}>
-              <StopCircle className="h-5 w-5" /> {t("convert.stop")}
-            </Button>
-          ) : (
-            <Button size="lg" className="w-full gap-2" disabled={!canStart} onClick={handleConvert}>
-              {queryMode === "area" ? <><Map className="h-5 w-5" /> {t("convert.areaMode")}</> : <><Play className="h-5 w-5" /> {t("convert.start", { source: SOURCE_LABELS[mapSource], count: displayCount })}</>}
-            </Button>
-          )}
-        </div>
+                          {categoryColumn && categoryColumn !== "__none__" && categoryValues.length > 0 && (
+                            <div className="rounded-lg border p-3">
+                              <p className="mb-2 text-xs font-medium text-muted-foreground">🎨 {t("input.categoryColors")}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {categoryValues.map(v => (
+                                  <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent">
+                                    <input
+                                      type="color"
+                                      value={customColors[v] || CATEGORY_PALETTE[0]}
+                                      onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))}
+                                      className="h-4 w-4 cursor-pointer border-0 p-0"
+                                    />
+                                    <span className="max-w-[100px] truncate">{v}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-        {/* Progress */}
-        <AnimatePresence>
+                          <div className="min-w-0 w-full overflow-hidden">
+                            <Table
+                              className="w-full whitespace-nowrap text-left text-sm"
+                              containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded-md"
+                            >
+                              <TableHeader className="sticky top-0 z-10 bg-card">
+                                <TableRow>
+                                  {fileHeaders.map(h => (
+                                    <TableHead
+                                      key={h}
+                                      title={h}
+                                      className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/10 font-bold")}
+                                    >
+                                      {h}
+                                    </TableHead>
+                                  ))}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {fileData.slice(0, 5).map((row, i) => (
+                                  <TableRow key={i}>
+                                    {fileHeaders.map(h => (
+                                      <TableCell
+                                        key={h}
+                                        title={String(row[h] ?? "")}
+                                        className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/5 font-medium")}
+                                      >
+                                        {row[h] ?? ""}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                            {fileData.length > 5 && (
+                              <p className="pt-2 text-center text-xs text-muted-foreground">
+                                {t("input.previewRows", { count: fileData.length })}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+
+            {/* Convert Button */}
+            <div className="mt-6">
+              {isProcessing ? (
+                <Button variant="destructive" size="lg" className="w-full gap-2" onClick={handleStop}>
+                  <StopCircle className="h-5 w-5" /> {t("convert.stop")}
+                </Button>
+              ) : (
+                <Button size="lg" className="w-full gap-2" disabled={!canStart} onClick={handleConvert}>
+                  <Play className="h-5 w-5" /> {t("convert.start", { source: SOURCE_LABELS[mapSource], count: displayCount })}
+                </Button>
+              )}
+            </div>
+
+            {/* Progress */}
+            <AnimatePresence>
           {(isProcessing || isDone) && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-6">
               <Card>
@@ -973,7 +895,30 @@ export default function Index() {
               </Card>
             </motion.div>
           )}
-        </AnimatePresence>
+          </AnimatePresence>
+          </TabsContent>
+
+          {/* Tab B: Polygon Extraction */}
+          <TabsContent value="polygon">
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+              <AreaQueryPanel
+                geoMapRef={geoMapRef}
+                onResults={(results) => {
+                  setAreaResults(results);
+                }}
+              />
+              <div className="rounded-xl border overflow-hidden min-h-[300px]">
+                <div className="h-[400px]">
+                  <GeoMap
+                    markers={[]}
+                    polygons={mapPolygons}
+                    className="h-full w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Map */}
         <Card className="mb-6">

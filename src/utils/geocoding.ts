@@ -12,6 +12,8 @@ export type AreaQueryType =
   | "commercial"  // 功能区/商业
   | "administrative"; // 行政区
 
+export type AreaQueryMode = "semantic" | "viewport" | "rectangle" | "polygon";
+
 export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
   building: "🏢 建筑",
   residential: "🏘️ 住宅区",
@@ -497,19 +499,31 @@ function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType
   return `[out:json][timeout:60];(${filter.replace(/\(area\.targetArea\)/g, `(${s},${w},${n},${e})`)});out body geom;`;
 }
 
-function getAreaTypeFilter(type: AreaQueryType): string {
+function getAreaTypeFilter(type: AreaQueryType, areaRef = "area.targetArea"): string {
   switch (type) {
     case "building":
-      return `way["building"]["name"](area.targetArea);`;
+      return `way["building"](${areaRef});relation["building"](${areaRef});`;
     case "residential":
-      return `way["landuse"="residential"]["name"](area.targetArea);relation["landuse"="residential"]["name"](area.targetArea);`;
+      return `way["landuse"="residential"](${areaRef});relation["landuse"="residential"](${areaRef});`;
     case "park":
-      return `way["leisure"="park"]["name"](area.targetArea);way["landuse"="grass"]["name"](area.targetArea);way["natural"="park"]["name"](area.targetArea);relation["leisure"="park"]["name"](area.targetArea);`;
+      return `way["leisure"="park"](${areaRef});way["landuse"="grass"](${areaRef});way["natural"="park"](${areaRef});relation["leisure"="park"](${areaRef});`;
     case "commercial":
-      return `way["landuse"="commercial"]["name"](area.targetArea);way["landuse"="retail"]["name"](area.targetArea);`;
+      return `way["landuse"="commercial"](${areaRef});way["landuse"="retail"](${areaRef});`;
     case "administrative":
-      return `relation["boundary"="administrative"]["name"](area.targetArea);`;
+      return `relation["boundary"="administrative"](${areaRef});`;
   }
+}
+
+function buildBboxOverpassQuery(bbox: [number, number, number, number], type: AreaQueryType): string {
+  const [south, west, north, east] = bbox;
+  const filter = getAreaTypeFilter(type);
+  return `[out:json][timeout:60];(${filter});out body geom;`;
+}
+
+function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryType): string {
+  const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
+  const filter = getAreaTypeFilter(type);
+  return `[out:json][timeout:60];(${filter}(poly:"${polyStr}"););out body geom;`;
 }
 
 function parseOverpassGeometry(element: OverpassElement): number[][] {
@@ -518,18 +532,32 @@ function parseOverpassGeometry(element: OverpassElement): number[][] {
 }
 
 export async function queryOSMArea(
-  keyword: string,
+  mode: AreaQueryMode,
   areaType: AreaQueryType,
+  params: {
+    keyword?: string;
+    bbox?: [number, number, number, number];
+    polygonLatLngs?: [number, number][];
+  },
   signal?: AbortSignal,
 ): Promise<AreaResult[]> {
-  // Step 1: Use Nominatim to find the bounding box for the keyword
-  const place = await searchNominatim(keyword, signal);
-  if (!place || !place.boundingbox) {
-    throw new Error(`未找到「${keyword}」的位置信息，请尝试更具体的名称`);
-  }
+  let query: string;
 
-  const bbox = expandBbox(place.boundingbox);
-  const query = buildOverpassBboxQuery(bbox, areaType);
+  if (mode === "semantic") {
+    if (!params.keyword) throw new Error("请输入关键词");
+    const place = await searchNominatim(params.keyword, signal);
+    if (!place || !place.boundingbox) {
+      throw new Error(`未找到「${params.keyword}」的位置信息，请尝试更具体的名称`);
+    }
+    const bbox = expandBbox(place.boundingbox);
+    query = buildOverpassBboxQuery(bbox, areaType);
+  } else if (mode === "viewport" || mode === "rectangle") {
+    if (!params.bbox) throw new Error("缺少边界框参数");
+    query = buildBboxOverpassQuery(params.bbox, areaType);
+  } else {
+    if (!params.polygonLatLngs || params.polygonLatLngs.length < 3) throw new Error("缺少多边形顶点数据");
+    query = buildPolygonOverpassQuery(params.polygonLatLngs, areaType);
+  }
 
   const res = await fetch(OVERPASS_URL, {
     method: "POST",
