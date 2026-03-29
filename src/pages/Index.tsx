@@ -141,6 +141,58 @@ export default function Index() {
   // Auto-fit control
   const [autoFitDisabled, setAutoFitDisabled] = useState(false);
 
+  // Dark mode
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("theme") === "dark";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    try {
+      const { headers, rows } = await parseUploadFile(file);
+      setFileData(rows);
+      setFileHeaders(headers);
+      setFileName(file.name);
+      setInputMode("file");
+      const guess = headers.find(f => /地址|address|位置|名称|name/i.test(f)) || headers[0];
+      setSelectedColumn(guess);
+    } catch (err) {
+      toast({ title: "解析失败", description: err instanceof Error ? err.message : "文件格式不正确", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
   useEffect(() => {
     const map = geoMapRef.current?.getMap();
     if (!map) return;
