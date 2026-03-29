@@ -315,9 +315,9 @@ export default function Index() {
   }, [categoryValues]);
 
   // Build category-address mapping for markers
-  const addressCategoryMap = useMemo(() => {
-    if (!categoryColumn || !fileData.length) return new Map<string, string>();
-    const map = new Map<string, string>();
+  const addressCategoryMap = useMemo((): globalThis.Map<string, string> => {
+    if (!categoryColumn || !fileData.length) return new globalThis.Map();
+    const map = new globalThis.Map<string, string>();
     fileData.forEach(row => {
       const addr = row[selectedColumn]?.trim();
       const cat = row[categoryColumn]?.trim();
