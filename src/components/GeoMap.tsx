@@ -1,6 +1,7 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.chinatmsproviders";
 
 export interface MapMarker {
   lat: number;
@@ -18,7 +19,6 @@ interface GeoMapProps {
   markers: MapMarker[];
   className?: string;
   autoFitDisabled?: boolean;
-  darkMode?: boolean;
   categoryColors?: CategoryColor[];
 }
 
@@ -26,18 +26,16 @@ export interface GeoMapHandle {
   getMap: () => L.Map | null;
 }
 
-const OSM_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
-const SAT_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SAT_ATTR = "&copy; Esri &middot; Maxar &middot; Earthstar Geographics";
-
-const DARK_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 const DARK_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
+const TIANDITU_ATTR = '&copy; <a href="https://www.tianditu.gov.cn">天地图</a>';
+const GAODE_ATTR = '&copy; <a href="https://www.autonavi.com">高德地图</a>';
+const GEOQ_ATTR = '&copy; <a href="https://www.geoq.cn">智图科技</a>';
 
 const DEFAULT_MARKER_COLOR = "#6366f1";
 
-export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled, darkMode, categoryColors }, ref) => {
+export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled, categoryColors }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
@@ -59,17 +57,33 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       attributionControl: true,
     });
 
-    const osmLayer = L.tileLayer(OSM_URL, { attribution: OSM_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
-    const satLayer = L.tileLayer(SAT_URL, { attribution: SAT_ATTR, maxZoom: 19 });
-    const darkLayer = L.tileLayer(DARK_URL, { attribution: DARK_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
+    const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: OSM_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
+    const satLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: SAT_ATTR, maxZoom: 19 });
+    const darkLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: DARK_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
+    const gaodeLayer = L.tileLayer.chinaProvider("GaoDe.Normal.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
+    const gaodeSatLayer = L.tileLayer.chinaProvider("GaoDe.Satellite.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
+    const geoqLayer = L.tileLayer.chinaProvider("Geoq.Normal.Map", { attribution: GEOQ_ATTR, maxZoom: 18 });
+    const geoqBlueLayer = L.tileLayer.chinaProvider("Geoq.Normal.PurplishBlue", { attribution: GEOQ_ATTR, maxZoom: 18 });
+    const tdtLayer = L.tileLayer.chinaProvider("TianDiTu.Normal.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
+    const tdtSatLayer = L.tileLayer.chinaProvider("TianDiTu.Satellite.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
 
     osmLayerRef.current = osmLayer;
     darkLayerRef.current = darkLayer;
 
-    osmLayer.addTo(map);
+    gaodeLayer.addTo(map);
 
     L.control.layers(
-      { "🗺️ 标准地图": osmLayer, "🛰️ 卫星图": satLayer, "🌙 暗色地图": darkLayer },
+      {
+        "🏠 高德地图": gaodeLayer,
+        "🗺️ OpenStreetMap": osmLayer,
+        "🛰️ 卫星图(Esri)": satLayer,
+        "📡 高德卫星": gaodeSatLayer,
+        "🗄️ 智图在线": geoqLayer,
+        "🎨 智图藏蓝": geoqBlueLayer,
+        "🌐 天地图": tdtLayer,
+        "🛰️ 天地图卫星": tdtSatLayer,
+        "🌙 暗色地图": darkLayer,
+      },
       {},
       { position: "topright", collapsed: true }
     ).addTo(map);
@@ -86,21 +100,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     };
   }, []);
 
-  // Switch tile layer based on darkMode
-  useEffect(() => {
-    const map = mapRef.current;
-    const osmLayer = osmLayerRef.current;
-    const dkLayer = darkLayerRef.current;
-    if (!map || !osmLayer || !dkLayer) return;
 
-    if (darkMode) {
-      if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
-      if (!map.hasLayer(dkLayer)) dkLayer.addTo(map);
-    } else {
-      if (map.hasLayer(dkLayer)) map.removeLayer(dkLayer);
-      if (!map.hasLayer(osmLayer)) osmLayer.addTo(map);
-    }
-  }, [darkMode]);
 
   // Build color lookup from categoryColors
   const colorMap = new Map<string, string>();

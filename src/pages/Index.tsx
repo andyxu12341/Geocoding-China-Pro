@@ -813,7 +813,6 @@ export default function Index() {
                 markers={mapMarkers}
                 className="h-full w-full"
                 autoFitDisabled={autoFitDisabled}
-                darkMode={darkMode}
                 categoryColors={categoryColorList.length > 0 ? categoryColorList : undefined}
               />
             </div>
