@@ -477,10 +477,21 @@ export default function Index() {
               <div className="space-y-3">
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/20 p-8 transition-colors hover:border-primary/40 hover:bg-accent/50"
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors",
+                    isDragging
+                      ? "border-primary bg-primary/10"
+                      : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
+                  )}
                 >
-                  <UploadCloud className="mb-2 h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm font-medium text-muted-foreground">点击上传 CSV / Excel 文件</p>
+                  <UploadCloud className={cn("mb-2 h-8 w-8", isDragging ? "text-primary" : "text-muted-foreground")} />
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {isDragging ? "松开鼠标即可上传" : "点击或拖拽上传 CSV / Excel 文件"}
+                  </p>
                   <p className="text-xs text-muted-foreground">支持 .csv / .xls / .xlsx</p>
                   <input
                     ref={fileInputRef}
