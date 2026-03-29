@@ -458,24 +458,57 @@ interface OverpassResponse {
   elements: OverpassElement[];
 }
 
-function buildOverpassQuery(keyword: string, areaType: AreaQueryType): string {
-  const escaped = keyword.replace(/([\\[\]()+*?|])/g, "\\$1").replace(/"/g, '\\"');
-  const areaTypeFilter = getAreaTypeFilter(areaType);
-  return `[out:json][timeout:60];area["name"~"${escaped}"]->.targetArea;${areaTypeFilter}(area.targetArea);out body geom;`;
+interface NominatimPlace {
+  lat: string;
+  lon: string;
+  boundingbox?: [string, string, string, string]; // [south, north, west, east]
+  display_name: string;
+}
+
+async function searchNominatim(keyword: string, signal?: AbortSignal): Promise<NominatimPlace | null> {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(keyword)}&format=json&limit=1&addressdetails=0`;
+  const res = await fetch(url, {
+    headers: {
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
+    },
+    signal: signal || AbortSignal.timeout(10000),
+  });
+  if (!res.ok) return null;
+  const data = await res.json() as NominatimPlace[];
+  return data.length > 0 ? data[0] : null;
+}
+
+function expandBbox(bbox: [string, string, string, string], factor = 0.05): [number, number, number, number] {
+  const [s, n, w, e] = bbox.map(Number);
+  const latRange = n - s;
+  const lonRange = e - w;
+  return [
+    s - latRange * factor,
+    n + latRange * factor,
+    w - lonRange * factor,
+    e + lonRange * factor,
+  ];
+}
+
+function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType: AreaQueryType): string {
+  const [s, n, w, e] = bbox;
+  const filter = getAreaTypeFilter(areaType);
+  return `[out:json][timeout:60];(${filter.replace(/\(area\.targetArea\)/g, `(${s},${w},${n},${e})`)});out body geom;`;
 }
 
 function getAreaTypeFilter(type: AreaQueryType): string {
   switch (type) {
     case "building":
-      return `(way["building"]["name"](area.targetArea););`;
+      return `way["building"]["name"](area.targetArea);`;
     case "residential":
-      return `(way["landuse"="residential"](area.targetArea);relation["landuse"="residential"](area.targetArea););`;
+      return `way["landuse"="residential"]["name"](area.targetArea);relation["landuse"="residential"]["name"](area.targetArea);`;
     case "park":
-      return `(way["leisure"="park"](area.targetArea);way["landuse"="grass"]["name"](area.targetArea);way["natural"="park"](area.targetArea);relation["leisure"="park"](area.targetArea);way["tourism"="attraction"](area.targetArea););`;
+      return `way["leisure"="park"]["name"](area.targetArea);way["landuse"="grass"]["name"](area.targetArea);way["natural"="park"]["name"](area.targetArea);relation["leisure"="park"]["name"](area.targetArea);`;
     case "commercial":
-      return `(way["landuse"="commercial"](area.targetArea);way["landuse"="retail"](area.targetArea););`;
+      return `way["landuse"="commercial"]["name"](area.targetArea);way["landuse"="retail"]["name"](area.targetArea);`;
     case "administrative":
-      return `(relation["boundary"="administrative"](area.targetArea);way["boundary"="administrative"](area.targetArea););`;
+      return `relation["boundary"="administrative"]["name"](area.targetArea);`;
   }
 }
 
@@ -489,7 +522,14 @@ export async function queryOSMArea(
   areaType: AreaQueryType,
   signal?: AbortSignal,
 ): Promise<AreaResult[]> {
-  const query = buildOverpassQuery(keyword, areaType);
+  // Step 1: Use Nominatim to find the bounding box for the keyword
+  const place = await searchNominatim(keyword, signal);
+  if (!place || !place.boundingbox) {
+    throw new Error(`未找到「${keyword}」的位置信息，请尝试更具体的名称`);
+  }
+
+  const bbox = expandBbox(place.boundingbox);
+  const query = buildOverpassBboxQuery(bbox, areaType);
 
   const res = await fetch(OVERPASS_URL, {
     method: "POST",
@@ -497,7 +537,7 @@ export async function queryOSMArea(
       "Content-Type": "application/x-www-form-urlencoded",
       "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
     },
-    body: new URLSearchParams({ data: query }).toString(),
+    body: `data=${encodeURIComponent(query)}`,
     signal: signal || AbortSignal.timeout(60000),
   });
 
@@ -511,17 +551,18 @@ export async function queryOSMArea(
     }
     throw new Error(`Overpass API 错误: HTTP ${res.status}`);
   }
+
   const data = await res.json() as OverpassResponse;
 
   const results: AreaResult[] = [];
   for (const el of data.elements) {
     if (!el.tags?.name) continue;
     const polygon = parseOverpassGeometry(el);
-    if (polygon.length < 3) continue; // skip degenerate polygons
+    if (polygon.length < 3) continue;
 
     const center = elementCenter(polygon);
     results.push({
-      name: el.tags.name || `${el.tags.landuse || el.tags.leisure || el.tags.building || "未知"}-${el.id}`,
+      name: el.tags.name,
       type: areaType,
       osmId: el.id,
       osmType: el.type,

@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import {
   MapPin, Key, Eye, EyeOff, UploadCloud, FileText,
   Play, Download, CheckCircle2, XCircle, Loader2,
-  Map, Settings, StopCircle, ChevronDown, Copy, Sun, Moon, BarChart2, History, Trash2, RotateCcw, Clock,
+  Map, Settings, StopCircle, ChevronDown, Copy, Sun, Moon, History, Trash2, RotateCcw, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, queryOSMArea, type AreaResult, type AreaQueryType, type GeocodeCandidate } from "@/utils/geocoding";
+import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, queryOSMArea, type AreaResult, type AreaQueryType, type GeocodeCandidate, AREA_TYPE_LABELS } from "@/utils/geocoding";
 import { exportCSV, exportGeoJSON, exportKML, exportMapPNG } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
 
@@ -413,29 +413,6 @@ export default function Index() {
   const successCount = results.filter(r => r.status === "success").length;
   const failedCount = results.filter(r => r.status === "failed").length;
 
-  const pieData = [
-    { name: t("progress.success"), value: successCount, fill: "#10b981" },
-    { name: t("progress.failed"), value: failedCount, fill: "#f43f5e" },
-  ].filter(d => d.value > 0);
-
-  const categoryStats = useMemo(() => {
-    const counts: Record<string, number> = {};
-    results.forEach(r => {
-      const cat = r.category || "uncategorized";
-      counts[cat] = (counts[cat] || 0) + 1;
-    });
-    return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [results]);
-
-  const displayCategoryStats = categoryStats.map(s => ({
-    ...s,
-    displayName: s.name === "uncategorized" ? t("stats.uncategorized") : s.name,
-  }));
-
-  const hasStats = results.length > 0;
-
   const getAddresses = useCallback((): string[] => {
     if (inputMode === "text") {
       return textInput.split("\n").map(s => s.trim()).filter(Boolean);
@@ -578,7 +555,7 @@ export default function Index() {
         if (results.length === 0) {
           toast({ title: t("toast.areaNoResult"), description: t("toast.areaNoResultHint", { keyword: kw }) });
         } else {
-          toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: areaType }) });
+          toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
         }
     } catch (err) {
         toast({
@@ -986,64 +963,6 @@ export default function Index() {
                     <StatsCard title={t("progress.total")} value={total} icon={<Map className="h-5 w-5" />} color="blue" />
                     <StatsCard title={t("progress.success")} value={successCount} icon={<CheckCircle2 className="h-5 w-5" />} color="emerald" />
                     <StatsCard title={t("progress.failed")} value={failedCount} icon={<XCircle className="h-5 w-5" />} color="rose" />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Statistics Panel */}
-        <AnimatePresence>
-          {hasStats && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-6">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <BarChart2 className="h-4 w-4" /> {t("stats.title")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    {/* Success/Failure Pie */}
-                    {pieData.length > 0 && (
-                      <div className="flex flex-col items-center">
-                        <p className="mb-2 text-xs font-medium text-muted-foreground">{t("stats.successRate")}</p>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <PieChart>
-                            <Pie
-                              data={pieData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={45}
-                              outerRadius={75}
-                              paddingAngle={3}
-                              dataKey="value"
-                            >
-                              {pieData.map((entry, i) => (
-                                <Cell key={i} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value: number, name: string) => [`${value} ${t("stats.tooltipCount")}`, name]} />
-                            <Legend />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                    {/* Category Bar Chart */}
-                    {displayCategoryStats.length > 0 && (
-                      <div>
-                        <p className="mb-2 text-xs font-medium text-muted-foreground">{t("stats.categoryDist")}</p>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <BarChart data={displayCategoryStats} layout="vertical" margin={{ left: 10 }}>
-                            <XAxis type="number" tick={{ fontSize: 11 }} />
-                            <YAxis type="category" dataKey="displayName" width={80} tick={{ fontSize: 11 }} />
-                            <Tooltip formatter={(value: number) => [`${value} ${t("stats.tooltipCount")}`, t("stats.count")]} />
-                            <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
