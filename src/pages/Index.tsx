@@ -518,7 +518,7 @@ export default function Index() {
                     {/* Preview table */}
                     <div className="max-h-[200px] overflow-auto rounded-lg border">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-card">
                           <TableRow>
                             {fileHeaders.map(h => (
                               <TableHead key={h} className={cn("text-xs", h === selectedColumn && "bg-primary/10 font-bold")}>{h}</TableHead>
