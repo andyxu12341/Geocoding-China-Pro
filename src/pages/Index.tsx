@@ -578,111 +578,120 @@ export default function Index() {
           </Card>
 
           {/* Data Input */}
-          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
-            <TabsList className="w-full">
-              <TabsTrigger value="text" className="flex-1 gap-1.5">
-                <FileText className="h-4 w-4" /> 文本粘贴
-              </TabsTrigger>
-              <TabsTrigger value="file" className="flex-1 gap-1.5">
-                <UploadCloud className="h-4 w-4" /> 文件上传
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="text" className="mt-3">
-              <Textarea
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder={DEMO_ADDRESSES}
-                className="min-h-[200px] resize-y"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                每行一个地址。留空直接点击按钮可体验 Demo 数据。
-              </p>
-            </TabsContent>
-            <TabsContent value="file" className="mt-3">
-              <div className="space-y-3">
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={handleDragOver}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={cn(
-                    "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors",
-                    isDragging
-                      ? "border-primary bg-primary/10"
-                      : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
-                  )}
-                >
-                  <UploadCloud className={cn("mb-2 h-8 w-8", isDragging ? "text-primary" : "text-muted-foreground")} />
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {isDragging ? "松开鼠标即可上传" : "点击或拖拽上传 CSV / Excel 文件"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">支持 .csv / .xls / .xlsx</p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-                </div>
-                {fileHeaders.length > 0 && (
-                  <>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                          📂 {fileName} — 选择地址列
-                        </label>
-                        <Select value={selectedColumn} onValueChange={setSelectedColumn}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <p className="mt-1 text-xs text-muted-foreground">已加载 {fileData.length} 行数据</p>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                          🏷️ 选择类别列（可选）
-                        </label>
-                        <Select value={categoryColumn} onValueChange={setCategoryColumn}>
-                          <SelectTrigger><SelectValue placeholder="不使用类别" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">不使用类别</SelectItem>
-                            {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {/* Category color editor */}
-                    {categoryColumn && categoryColumn !== "__none__" && categoryValues.length > 0 && (
-                      <div className="rounded-lg border p-3">
-                        <p className="mb-2 text-xs font-medium text-muted-foreground">🎨 类别颜色（点击色块自定义）</p>
-                        <div className="flex flex-wrap gap-2">
-                          {categoryValues.map(v => (
-                            <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent">
-                              <input
-                                type="color"
-                                value={customColors[v] || CATEGORY_PALETTE[0]}
-                                onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))}
-                                className="h-4 w-4 cursor-pointer border-0 p-0"
-                              />
-                              <span className="max-w-[100px] truncate">{v}</span>
-                            </label>
-                          ))}
+          <div className="min-w-0 w-full overflow-hidden">
+            <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
+              <TabsList className="w-full">
+                <TabsTrigger value="text" className="flex-1 gap-1.5">
+                  <FileText className="h-4 w-4" /> 文本粘贴
+                </TabsTrigger>
+                <TabsTrigger value="file" className="flex-1 gap-1.5">
+                  <UploadCloud className="h-4 w-4" /> 文件上传
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="text" className="mt-3">
+                <Textarea
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder={DEMO_ADDRESSES}
+                  className="min-h-[200px] resize-y"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  每行一个地址。留空直接点击按钮可体验 Demo 数据。
+                </p>
+              </TabsContent>
+              <TabsContent value="file" className="mt-3">
+                <div className="min-w-0 w-full space-y-3 overflow-hidden">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors",
+                      isDragging
+                        ? "border-primary bg-primary/10"
+                        : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
+                    )}
+                  >
+                    <UploadCloud className={cn("mb-2 h-8 w-8", isDragging ? "text-primary" : "text-muted-foreground")} />
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {isDragging ? "松开鼠标即可上传" : "点击或拖拽上传 CSV / Excel 文件"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">支持 .csv / .xls / .xlsx</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </div>
+                  {fileHeaders.length > 0 && (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                            📂 {fileName} — 选择地址列
+                          </label>
+                          <Select value={selectedColumn} onValueChange={setSelectedColumn}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <p className="mt-1 text-xs text-muted-foreground">已加载 {fileData.length} 行数据</p>
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                            🏷️ 选择类别列（可选）
+                          </label>
+                          <Select value={categoryColumn} onValueChange={setCategoryColumn}>
+                            <SelectTrigger><SelectValue placeholder="不使用类别" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">不使用类别</SelectItem>
+                              {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-                    )}
 
-                    {/* Preview table */}
-                    <div className="min-w-0 overflow-hidden rounded-lg border">
-                      <div className="max-h-[200px] w-full overflow-x-auto overflow-y-auto">
-                        <Table>
+                      {/* Category color editor */}
+                      {categoryColumn && categoryColumn !== "__none__" && categoryValues.length > 0 && (
+                        <div className="rounded-lg border p-3">
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">🎨 类别颜色（点击色块自定义）</p>
+                          <div className="flex flex-wrap gap-2">
+                            {categoryValues.map(v => (
+                              <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent">
+                                <input
+                                  type="color"
+                                  value={customColors[v] || CATEGORY_PALETTE[0]}
+                                  onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))}
+                                  className="h-4 w-4 cursor-pointer border-0 p-0"
+                                />
+                                <span className="max-w-[100px] truncate">{v}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Preview table */}
+                      <div className="min-w-0 w-full overflow-hidden">
+                        <Table
+                          className="w-full whitespace-nowrap text-left text-sm"
+                          containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded-md"
+                        >
                           <TableHeader className="sticky top-0 z-10 bg-card">
                             <TableRow>
                               {fileHeaders.map(h => (
-                                <TableHead key={h} className={cn("whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/10 font-bold")}>{h}</TableHead>
+                                <TableHead
+                                  key={h}
+                                  title={h}
+                                  className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/10 font-bold")}
+                                >
+                                  {h}
+                                </TableHead>
                               ))}
                             </TableRow>
                           </TableHeader>
@@ -690,7 +699,11 @@ export default function Index() {
                             {fileData.slice(0, 5).map((row, i) => (
                               <TableRow key={i}>
                                 {fileHeaders.map(h => (
-                                  <TableCell key={h} className={cn("whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/5 font-medium")}>
+                                  <TableCell
+                                    key={h}
+                                    title={String(row[h] ?? "")}
+                                    className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/5 font-medium")}
+                                  >
                                     {row[h] ?? ""}
                                   </TableCell>
                                 ))}
@@ -698,18 +711,18 @@ export default function Index() {
                             ))}
                           </TableBody>
                         </Table>
+                        {fileData.length > 5 && (
+                          <p className="pt-2 text-center text-xs text-muted-foreground">
+                            仅显示前 5 行，共 {fileData.length} 行
+                          </p>
+                        )}
                       </div>
-                      {fileData.length > 5 && (
-                        <p className="border-t p-2 text-center text-xs text-muted-foreground">
-                          仅显示前 5 行，共 {fileData.length} 行
-                        </p>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+                    </>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
 
         {/* Convert Button */}
@@ -785,7 +798,7 @@ export default function Index() {
         {/* Results Table + Export */}
         <AnimatePresence>
           {results.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 w-full overflow-hidden">
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -810,25 +823,27 @@ export default function Index() {
                   </div>
                 </CardHeader>
                 <CardContent className="min-w-0 overflow-hidden">
-                  <div className="max-h-[500px] w-full overflow-x-auto overflow-y-auto rounded-lg border">
-                    <Table>
+                    <Table
+                      className="w-full whitespace-nowrap text-left text-sm"
+                      containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[500px] border rounded-md"
+                    >
                       <TableHeader className="sticky top-0 z-10 bg-card">
                         <TableRow>
-                          <TableHead className="whitespace-nowrap">地址</TableHead>
+                          <TableHead className="max-w-xs truncate whitespace-nowrap" title="地址">地址</TableHead>
                           <TableHead className="whitespace-nowrap">经度</TableHead>
                           <TableHead className="whitespace-nowrap">纬度</TableHead>
-                          <TableHead className="whitespace-nowrap">格式化地址</TableHead>
+                          <TableHead className="max-w-sm truncate whitespace-nowrap" title="格式化地址">格式化地址</TableHead>
                           <TableHead className="whitespace-nowrap">状态</TableHead>
-                          <TableHead className="w-[60px]">操作</TableHead>
+                          <TableHead className="w-[60px] whitespace-nowrap">操作</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {results.map((r, i) => (
                           <TableRow key={i}>
-                            <TableCell className="whitespace-nowrap font-medium">{r.address}</TableCell>
+                            <TableCell className="max-w-xs truncate whitespace-nowrap font-medium" title={r.address}>{r.address}</TableCell>
                             <TableCell className="whitespace-nowrap font-mono text-xs">{r.lng ?? "-"}</TableCell>
                             <TableCell className="whitespace-nowrap font-mono text-xs">{r.lat ?? "-"}</TableCell>
-                            <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">{r.formattedAddress ?? "-"}</TableCell>
+                            <TableCell className="max-w-sm truncate whitespace-nowrap text-xs text-muted-foreground" title={r.formattedAddress ?? "-"}>{r.formattedAddress ?? "-"}</TableCell>
                             <TableCell className="whitespace-nowrap">
                               {r.status === "success" ? (
                                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-300">成功</Badge>
@@ -851,7 +866,6 @@ export default function Index() {
                         ))}
                       </TableBody>
                     </Table>
-                  </div>
                 </CardContent>
               </Card>
             </motion.div>
