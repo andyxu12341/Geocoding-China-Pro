@@ -640,16 +640,16 @@ export default function Index() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="max-h-[400px] overflow-auto rounded-lg border">
+                <CardContent className="overflow-hidden">
+                  <div className="max-h-96 overflow-auto rounded-lg border">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="sticky top-0 z-10 bg-card">
                         <TableRow>
                           <TableHead className="min-w-[180px]">地址</TableHead>
-                          <TableHead>经度</TableHead>
-                          <TableHead>纬度</TableHead>
-                          <TableHead>格式化地址</TableHead>
-                          <TableHead>状态</TableHead>
+                          <TableHead className="min-w-[100px]">经度</TableHead>
+                          <TableHead className="min-w-[100px]">纬度</TableHead>
+                          <TableHead className="min-w-[200px]">格式化地址</TableHead>
+                          <TableHead className="min-w-[70px]">状态</TableHead>
                           <TableHead className="w-[60px]">操作</TableHead>
                         </TableRow>
                       </TableHeader>
