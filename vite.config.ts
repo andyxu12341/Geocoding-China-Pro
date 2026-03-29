@@ -8,7 +8,7 @@ export default defineConfig(({ mode, command }) => ({
   // Vercel: use "/" | GitHub Pages: use "/Geocoding-China-Pro/"
   base: command === "build" && process.env.VITE_DEPLOY_TARGET === "github"
     ? "/Geocoding-China-Pro/"
-    : "./",
+    : "/",
   server: {
     host: "::",
     port: 8080,
