@@ -533,8 +533,31 @@ function buildBboxOverpassQuery(bbox: [number, number, number, number], type: Ar
 
 function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryType): string {
   const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
-  const filter = getAreaTypeFilter(type);
-  return `[out:json][timeout:60];(${filter}(poly:"${polyStr}"););out body geom;`;
+  const filter = getAreaPolyFilter(type, polyStr);
+  return `[out:json][timeout:60];(poly:"${polyStr}";${filter});out body geom;`;
+}
+
+function getAreaPolyFilter(type: AreaQueryType, polyStr: string): string {
+  switch (type) {
+    case "all":
+      return [
+        `way["building"];relation["building"];`,
+        `way["landuse"="residential"];relation["landuse"="residential"];`,
+        `way["leisure"="park"];way["landuse"="grass"];way["natural"="park"];relation["leisure"="park"];`,
+        `way["landuse"="commercial"];way["landuse"="retail"];`,
+        `relation["boundary"="administrative"];`,
+      ].join("");
+    case "building":
+      return `way["building"];relation["building"];`;
+    case "residential":
+      return `way["landuse"="residential"];relation["landuse"="residential"];`;
+    case "park":
+      return `way["leisure"="park"];way["landuse"="grass"];way["natural"="park"];relation["leisure"="park"];`;
+    case "commercial":
+      return `way["landuse"="commercial"];way["landuse"="retail"];`;
+    case "administrative":
+      return `relation["boundary"="administrative"];`;
+  }
 }
 
 function parseOverpassGeometry(element: OverpassElement): number[][] {
