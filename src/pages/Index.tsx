@@ -30,8 +30,6 @@ import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig } 
 import { exportCSV, exportGeoJSON, exportKML, exportMapPNG } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor } from "@/components/GeoMap";
 
-const BATCH_SIZE = 20;
-
 const DEMO_ADDRESSES = "北京故宫\n上海东方明珠\n广州塔\n深圳平安金融中心\n成都大熊猫繁育研究基地";
 
 const SOURCE_LABELS: Record<MapSource, string> = {
@@ -317,25 +315,13 @@ export default function Index() {
     });
   }, [categoryValues]);
 
-  // Build category-address mapping for markers
-  const addressCategoryMap = useMemo((): globalThis.Map<string, string> => {
-    if (!categoryColumn || !fileData.length) return new globalThis.Map();
-    const map = new globalThis.Map<string, string>();
-    fileData.forEach(row => {
-      const addr = row[selectedColumn]?.trim();
-      const cat = row[categoryColumn]?.trim();
-      if (addr && cat) map.set(addr, cat);
-    });
-    return map;
-  }, [categoryColumn, fileData, selectedColumn]);
-
   const mapMarkers: MapMarker[] = results
     .filter(r => r.status === "success" && r.lat && r.lng)
     .map(r => ({
       lat: parseFloat(r.lat!),
       lng: parseFloat(r.lng!),
       label: r.address,
-      category: addressCategoryMap.get(r.address),
+      category: r.category,
     }));
 
   const categoryColorList: CategoryColor[] = useMemo(() => {
@@ -441,7 +427,6 @@ export default function Index() {
           }
         },
         abortRef.current.signal,
-        BATCH_SIZE,
         addressToCategory,
       );
       setIsDone(true);

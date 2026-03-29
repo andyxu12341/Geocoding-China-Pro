@@ -279,25 +279,18 @@ export async function geocodeBatch(
   config: GeocodingConfig,
   onProgress: (progress: BatchProgress) => void,
   signal?: AbortSignal,
-  batchSize = 20,
   addressToCategory?: Map<string, string>,
 ): Promise<GeocodeItem[]> {
   const results: GeocodeItem[] = [];
   const total = addresses.length;
   const delay = DELAY_MS[config.source];
 
-  const chunks: string[][] = [];
-  for (let i = 0; i < addresses.length; i += batchSize) {
-    chunks.push(addresses.slice(i, i + batchSize));
-  }
-
   // Nominatim requires at least 1s between requests; add initial delay to avoid burst
   if (config.source === "osm" && !signal?.aborted) {
     await sleep(delay);
   }
 
-  for (const chunk of chunks) {
-    for (const address of chunk) {
+  for (const address of addresses) {
       if (signal?.aborted) {
         results.push({ address, status: "failed", error: "已取消" });
         continue;
@@ -331,7 +324,6 @@ export async function geocodeBatch(
         await sleep(delay);
       }
     }
-  }
 
   return results;
 }
