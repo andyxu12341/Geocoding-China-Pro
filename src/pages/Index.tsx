@@ -801,29 +801,6 @@ export default function Index() {
                   </Button>
                 )}
 
-                {/* Progress */}
-                <AnimatePresence>
-                  {(isProcessing || isDone) && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                      <Card>
-                        <CardContent className="pt-4">
-                          <div className="mb-3 flex items-center justify-between text-xs">
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              {isProcessing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("progress.processing")}</> : <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> {t("progress.done")}</>}
-                            </span>
-                            <span className="font-mono text-xs text-muted-foreground">{completed} / {total}{eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}</span>
-                          </div>
-                          <Progress value={progress} className="h-1.5" />
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            <StatsCard title={t("progress.total")} value={total} icon={<Map className="h-4 w-4" />} color="blue" />
-                            <StatsCard title={t("progress.success")} value={successCount} icon={<CheckCircle2 className="h-4 w-4" />} color="emerald" />
-                            <StatsCard title={t("progress.failed")} value={failedCount} icon={<XCircle className="h-4 w-4" />} color="rose" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
                 </motion.div>
               </TabsContent>
 
@@ -872,6 +849,30 @@ export default function Index() {
             </Card>
           </div>
         </Tabs>
+
+        {/* Progress stats — below map, above results */}
+        <AnimatePresence>
+          {(isProcessing || isDone) && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="mb-3 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      {isProcessing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("progress.processing")}</> : <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> {t("progress.done")}</>}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">{completed} / {total}{eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}</span>
+                  </div>
+                  <Progress value={progress} className="h-1.5" />
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <StatsCard title={t("progress.total")} value={total} icon={<Map className="h-4 w-4" />} color="blue" />
+                    <StatsCard title={t("progress.success")} value={successCount} icon={<CheckCircle2 className="h-4 w-4" />} color="emerald" />
+                    <StatsCard title={t("progress.failed")} value={failedCount} icon={<XCircle className="h-4 w-4" />} color="rose" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Results Table + Export */}
         <AnimatePresence>
