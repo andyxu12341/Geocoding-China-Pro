@@ -115,7 +115,7 @@ export default function Index() {
   const [baiduKey, setBaiduKey] = useState("");
   const [showGaode, setShowGaode] = useState(false);
   const [showBaidu, setShowBaidu] = useState(false);
-  const [mapSource, setMapSource] = useState<MapSource>("gaode");
+  const [mapSource, setMapSource] = useState<MapSource>("osm");
 
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
   const [textInput, setTextInput] = useState("");
