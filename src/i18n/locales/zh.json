@@ -33,21 +33,21 @@
     "fileHint": "支持 .csv / .xls / .xlsx",
     "fileUploading": "松开鼠标即可上传",
     "addressCol": "选择地址列",
-    "rowsLoaded": "已加载 {count} 行数据",
+    "rowsLoaded": "已加载 {{count}} 行数据",
     "categoryCol": "选择类别列（可选）",
     "noCategory": "不使用类别",
     "categoryColors": "类别颜色（点击色块自定义）",
-    "previewRows": "仅显示前 5 行，共 {count} 行"
+    "previewRows": "仅显示前 5 行，共 {{count}} 行"
   },
   "convert": {
-    "start": "开始转换 — {source}（{count} 条）",
+    "start": "开始转换 — {{source}}（{{count}} 条）",
     "stop": "停止转换",
     "areaMode": "面域查询模式（请使用上方查询按钮）"
   },
   "progress": {
     "processing": "处理中...",
     "done": "完成",
-    "remaining": "预计剩余 {time}",
+    "remaining": "预计剩余 {{time}}",
     "total": "总计",
     "success": "成功",
     "failed": "失败"
@@ -62,8 +62,8 @@
   },
   "map": {
     "title": "地理底图",
-    "markers": "{count} 个坐标点",
-    "polygons": "{count} 个面数据",
+    "markers": "{{count}} 个坐标点",
+    "polygons": "{{count}} 个面数据",
     "waiting": "等待地址输入..."
   },
   "results": {
@@ -88,7 +88,7 @@
     "fileFormat": "文件格式不正确",
     "noAddress": "请输入地址",
     "conversionDone": "转换完成",
-    "successCount": "成功 {success} 条，失败 {failed} 条。",
+    "successCount": "成功 {{success}} 条，失败 {{failed}} 条。",
     "conversionInterrupted": "转换中断",
     "copied": "已复制",
     "fileSaved": "文件已保存",
@@ -96,14 +96,15 @@
     "screenshotFail": "截图失败",
     "screenshotHint": "请切换至标准地图图层后重试",
     "areaQuery": "查询中...",
-    "areaQueryDone": "找到 {count} 个面数据",
-    "areaQueryType": "类型：{type}",
+    "areaQueryDone": "找到 {{count}} 个面数据",
+    "areaQueryType": "类型：{{type}}",
     "areaNoResult": "未找到结果",
-    "areaNoResultHint": "在 OSM 中未找到「{keyword}」相关的面数据",
+    "areaNoResultHint": "在 OSM 中未找到「{{keyword}}」相关的面数据",
     "areaQueryFail": "查询失败",
     "historyLoaded": "已加载历史记录",
-    "historyLoadedHint": "{count} 条结果",
+    "historyLoadedHint": "{{count}} 条结果",
     "noKeyword": "请输入关键词",
+    "zoomTooLow": "查询范围过大，请放大地图后再试",
     "candidateSelected": "已选择",
     "cacheCleared": "缓存已清除",
     "pleaseWait": "请稍候",
@@ -111,26 +112,26 @@
   },
   "cancel": {
     "title": "转换已暂停",
-    "processed": "已处理 {total} 条，其中成功 {success} 条，失败 {failed} 条。",
-    "remaining": "剩余 {count} 条未处理。",
+    "processed": "已处理 {{total}} 条，其中成功 {{success}} 条，失败 {{failed}} 条。",
+    "remaining": "剩余 {{count}} 条未处理。",
     "confirm": "确认取消",
     "resume": "继续转换"
   },
   "history": {
     "title": "历史记录",
     "description": "最近 20 次转换记录，刷新页面后保留。",
-    "total": "共 {count} 条记录",
+    "total": "共 {{count}} 条记录",
     "noHistory": "暂无历史记录",
     "load": "加载",
     "clearAll": "清空全部",
     "close": "关闭",
     "success": "成功",
     "failed": "失败",
-    "total2": "共 {count} 条"
+    "total2": "共 {{count}} 条"
   },
   "candidate": {
-    "title": "选择最优匹配 — {address}",
-    "description": "找到 {count} 个候选结果，请选择最准确的一个：",
+    "title": "选择最优匹配 — {{address}}",
+    "description": "找到 {{count}} 个候选结果，请选择最准确的一个：",
     "cancel": "取消"
   },
   "areaQuery": {
@@ -145,7 +146,7 @@
     "keyword": "关键词",
     "keywordPlaceholder": "例如：北京市、朝阳区",
     "query": "查询",
-    "rendered": "已在地图上渲染 {count} 个面数据"
+    "rendered": "已在地图上渲染 {{count}} 个面数据"
   },
   "theme": {
     "light": "切换亮色模式",

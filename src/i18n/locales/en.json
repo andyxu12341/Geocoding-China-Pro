@@ -33,21 +33,21 @@
     "fileHint": "Supports .csv / .xls / .xlsx",
     "fileUploading": "Release to upload",
     "addressCol": "Select address column",
-    "rowsLoaded": "{count} rows loaded",
+    "rowsLoaded": "{{count}} rows loaded",
     "categoryCol": "Select category column (optional)",
     "noCategory": "No category",
     "categoryColors": "Category colors (click to customize)",
     "previewRows": "Showing first 5 of {count} rows"
   },
   "convert": {
-    "start": "Start — {source} ({count} items)",
+    "start": "Start — {{source}} ({{count}} items)",
     "stop": "Stop Conversion",
     "areaMode": "Area Query Mode (use the query button above)"
   },
   "progress": {
     "processing": "Processing...",
     "done": "Done",
-    "remaining": "~{time} remaining",
+    "remaining": "~{{time}} remaining",
     "total": "Total",
     "success": "Success",
     "failed": "Failed"
@@ -62,8 +62,8 @@
   },
   "map": {
     "title": "Map",
-    "markers": "{count} markers",
-    "polygons": "{count} polygons",
+    "markers": "{{count}} markers",
+    "polygons": "{{count}} polygons",
     "waiting": "Waiting for input..."
   },
   "results": {
@@ -88,7 +88,7 @@
     "fileFormat": "File format is invalid",
     "noAddress": "Please enter addresses",
     "conversionDone": "Conversion complete",
-    "successCount": "{success} succeeded, {failed} failed.",
+    "successCount": "{{success}} succeeded, {{failed}} failed.",
     "conversionInterrupted": "Conversion interrupted",
     "copied": "Copied",
     "fileSaved": "File saved",
@@ -96,14 +96,15 @@
     "screenshotFail": "Screenshot failed",
     "screenshotHint": "Switch to a standard map tile layer and try again",
     "areaQuery": "Querying...",
-    "areaQueryDone": "Found {count} polygon results",
-    "areaQueryType": "Type: {type}",
+    "areaQueryDone": "Found {{count}} polygon results",
+    "areaQueryType": "Type: {{type}}",
     "areaNoResult": "No results",
-    "areaNoResultHint": "No OSM polygon data found for '{keyword}'",
+    "areaNoResultHint": "No OSM polygon data found for '{{keyword}}'",
     "areaQueryFail": "Query failed",
     "historyLoaded": "History loaded",
-    "historyLoadedHint": "{count} results",
+    "historyLoadedHint": "{{count}} results",
     "noKeyword": "Please enter a keyword",
+    "zoomTooLow": "Search area too large. Please zoom in the map.",
     "candidateSelected": "Selected",
     "cacheCleared": "Cache cleared",
     "pleaseWait": "Please wait",
@@ -111,26 +112,26 @@
   },
   "cancel": {
     "title": "Conversion Paused",
-    "processed": "Processed {total} items: {success} succeeded, {failed} failed.",
-    "remaining": "{count} items remaining.",
+    "processed": "Processed {{total}} items: {{success}} succeeded, {{failed}} failed.",
+    "remaining": "{{count}} items remaining.",
     "confirm": "Cancel",
     "resume": "Resume"
   },
   "history": {
     "title": "History",
     "description": "Last 20 conversion sessions, persisted across page refreshes.",
-    "total": "{count} records",
+    "total": "{{count}} records",
     "noHistory": "No history yet",
     "load": "Load",
     "clearAll": "Clear All",
     "close": "Close",
     "success": "Success",
     "failed": "Failed",
-    "total2": "{count} items"
+    "total2": "{{count}} items"
   },
   "candidate": {
-    "title": "Select Best Match — {address}",
-    "description": "Found {count} candidates. Please choose the most accurate one:",
+    "title": "Select Best Match — {{address}}",
+    "description": "Found {{count}} candidates. Please choose the most accurate one:",
     "cancel": "Cancel"
   },
   "areaQuery": {
@@ -145,7 +146,7 @@
     "keyword": "Keyword",
     "keywordPlaceholder": "e.g. Beijing, Chaoyang District",
     "query": "Query",
-    "rendered": "Rendered {count} polygons on map"
+    "rendered": "Rendered {{count}} polygons on map"
   },
   "theme": {
     "light": "Switch to light mode",

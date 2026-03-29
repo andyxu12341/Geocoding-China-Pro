@@ -34,6 +34,7 @@ interface GeoMapProps {
 
 export interface GeoMapHandle {
   getMap: () => L.Map | null;
+  getZoom: () => number;
 }
 
 const OSM_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -57,7 +58,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
   const POLYGON_COLORS = ["#e15759", "#4e79a7", "#59a14f", "#f28e2b", "#b07aa1", "#76b7b2", "#edc948", "#ff9da7"];
 
-  useImperativeHandle(ref, () => ({ getMap: () => mapRef.current }));
+  useImperativeHandle(ref, () => ({ getMap: () => mapRef.current, getZoom: () => mapRef.current?.getZoom() ?? 0 }));
 
   useEffect(() => {
     const el = containerRef.current;

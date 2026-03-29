@@ -547,6 +547,11 @@ export default function Index() {
       toast({ title: t("toast.noKeyword"), variant: "destructive" });
       return;
     }
+    const zoom = geoMapRef.current?.getZoom() ?? 0;
+    if (zoom < 15) {
+      toast({ title: t("toast.zoomTooLow"), variant: "destructive" });
+      return;
+    }
     setIsQueryingArea(true);
     setAreaResults([]);
     try {
