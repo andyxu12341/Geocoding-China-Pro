@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "/Geocoding-China-Pro/",
+  base: "./", // Use "./" for Vercel/Root deployment. Use "/Geocoding-China-Pro/" for GitHub Pages
   server: {
     host: "::",
     port: 8080,
