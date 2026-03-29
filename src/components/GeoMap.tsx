@@ -76,6 +76,22 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     };
   }, []);
 
+  // Switch tile layer based on darkMode
+  useEffect(() => {
+    const map = mapRef.current;
+    const osmLayer = osmLayerRef.current;
+    const dkLayer = darkLayerRef.current;
+    if (!map || !osmLayer || !dkLayer) return;
+
+    if (darkMode) {
+      if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+      if (!map.hasLayer(dkLayer)) dkLayer.addTo(map);
+    } else {
+      if (map.hasLayer(dkLayer)) map.removeLayer(dkLayer);
+      if (!map.hasLayer(osmLayer)) osmLayer.addTo(map);
+    }
+  }, [darkMode]);
+
   useEffect(() => {
     const map = mapRef.current;
     const layer = layerRef.current;
