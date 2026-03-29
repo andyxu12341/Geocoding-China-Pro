@@ -10,7 +10,7 @@
 
 于是决定自己动手，用 Web 技术实现了这个工具，希望帮助有相同需求的人省去繁琐的手动操作。
 
-> 本项目受 [Batch.Geocoder.io](https://web.archive.org/web/20210301000000*/batchgeocoder.com) 等同类项目启发。
+> 本项目受 [mapLocation](https://github.com/sjfkai/mapLocation) 等同类项目启发。
 
 ## 功能特性
 
