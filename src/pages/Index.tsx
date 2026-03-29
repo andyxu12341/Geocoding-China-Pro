@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import {
   MapPin, Key, Eye, EyeOff, UploadCloud, FileText,
   Play, Download, CheckCircle2, XCircle, Loader2,
-  Map, Settings, StopCircle, ChevronDown, Copy,
+  Map, Settings, StopCircle, ChevronDown, Copy, Sun, Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
