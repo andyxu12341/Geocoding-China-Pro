@@ -51,7 +51,7 @@ function jsonp<T>(url: string, timeout = 8000): Promise<T> {
       script.remove();
     }
 
-    (window as Record<string, unknown>)[cbName] = (data: T) => {
+    (window as unknown as Record<string, unknown>)[cbName] = (data: T) => {
       cleanup();
       resolve(data);
     };
