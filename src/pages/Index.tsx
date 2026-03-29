@@ -608,7 +608,7 @@ export default function Index() {
           </CardHeader>
           <CardContent>
             <div ref={mapContainerRef} className="h-[400px] overflow-hidden rounded-xl border">
-              <GeoMap ref={geoMapRef} markers={mapMarkers} className="h-full w-full" autoFitDisabled={autoFitDisabled} />
+              <GeoMap ref={geoMapRef} markers={mapMarkers} className="h-full w-full" autoFitDisabled={autoFitDisabled} darkMode={darkMode} />
             </div>
           </CardContent>
         </Card>
