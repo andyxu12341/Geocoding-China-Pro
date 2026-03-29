@@ -4,6 +4,14 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## 背景介绍
+
+作为一名城乡规划专业的大学生，日常需要处理大量地址数据的坐标转换。调研后发现，GitHub 上虽然已有一些同类项目（如 Batch.Geocoder.io 等），但这些网站目前大多已无法访问，而国内现有的在线工具在批量处理能力上也有所欠缺。
+
+于是决定自己动手，用 Web 技术实现了这个工具，希望帮助有相同需求的人省去繁琐的手动操作。
+
+> 本项目受 [Batch.Geocoder.io](https://web.archive.org/web/20210301000000*/batchgeocoder.com) 等同类项目启发。
+
 ## 功能特性
 
 ### 核心功能
