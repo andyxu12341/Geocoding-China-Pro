@@ -4,8 +4,11 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  base: process.env.VITE_DEPLOY_TARGET === "github" ? "./" : "/",
+export default defineConfig(({ mode, command }) => ({
+  // Vercel: use "/" | GitHub Pages: use "/Geocoding-China-Pro/"
+  base: command === "build" && process.env.VITE_DEPLOY_TARGET === "github"
+    ? "/Geocoding-China-Pro/"
+    : "./",
   server: {
     host: "::",
     port: 8080,
