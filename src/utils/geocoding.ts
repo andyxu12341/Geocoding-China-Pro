@@ -6,6 +6,7 @@
 export type MapSource = "gaode" | "baidu" | "osm";
 
 export type AreaQueryType =
+  | "all"         // 所有面域
   | "building"    // 建筑
   | "residential" // 住宅区
   | "park"        // 景区/公园
@@ -15,6 +16,7 @@ export type AreaQueryType =
 export type AreaQueryMode = "semantic" | "viewport" | "rectangle" | "polygon";
 
 export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
+  all: "🌐 所有面域",
   building: "🏢 建筑",
   residential: "🏘️ 住宅区",
   park: "🏞️ 景区/公园",
@@ -23,6 +25,7 @@ export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
 };
 
 export const AREA_TYPE_DESCRIPTIONS: Record<AreaQueryType, string> = {
+  all: "同时提取建筑、住宅、公园、商业、行政区等多种面域",
   building: "查询建筑物轮廓（如单体建筑、大型场馆）",
   residential: "查询居住用地边界（如住宅小区、居住组团）",
   park: "查询公园绿地、景区、旅游景点边界",
@@ -501,6 +504,14 @@ function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType
 
 function getAreaTypeFilter(type: AreaQueryType, areaRef = "area.targetArea"): string {
   switch (type) {
+    case "all":
+      return [
+        `way["building"](${areaRef});relation["building"](${areaRef});`,
+        `way["landuse"="residential"](${areaRef});relation["landuse"="residential"](${areaRef});`,
+        `way["leisure"="park"](${areaRef});way["landuse"="grass"](${areaRef});way["natural"="park"](${areaRef});relation["leisure"="park"](${areaRef});`,
+        `way["landuse"="commercial"](${areaRef});way["landuse"="retail"](${areaRef});`,
+        `relation["boundary"="administrative"](${areaRef});`,
+      ].join("");
     case "building":
       return `way["building"](${areaRef});relation["building"](${areaRef});`;
     case "residential":

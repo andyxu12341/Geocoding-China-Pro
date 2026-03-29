@@ -185,6 +185,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
           <Select value={areaType} onValueChange={v => setAreaType(v as AreaQueryType)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">🌐 {t("areaQuery.all")}</SelectItem>
               <SelectItem value="building">🏢 {t("areaQuery.building")}</SelectItem>
               <SelectItem value="residential">🏘️ {t("areaQuery.residential")}</SelectItem>
               <SelectItem value="park">🏞️ {t("areaQuery.park")}</SelectItem>

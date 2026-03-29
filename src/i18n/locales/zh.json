@@ -140,6 +140,7 @@
     "title": "面域提取",
     "desc": "从 OpenStreetMap 查询建筑物/地块轮廓面数据",
     "queryType": "提取类型",
+    "all": "所有面域",
     "building": "建筑",
     "residential": "住宅区",
     "park": "景区/公园",
@@ -163,6 +164,10 @@
     "drawPolyHint": "请在右侧地图上点击绘制多边形（双击结束）",
     "viewportHint": "📍 将地图缩放/拖动到目标区域后点击「查询」按钮，将提取当前视野范围内的所有面数据",
     "rendered": "已在地图上渲染 {{count}} 个面数据"
+  },
+  "tabs": {
+    "geocoding": "坐标转换",
+    "polygon": "面域提取"
   },
   "theme": {
     "light": "切换亮色模式",

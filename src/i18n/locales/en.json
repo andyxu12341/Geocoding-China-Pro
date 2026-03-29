@@ -37,7 +37,7 @@
     "categoryCol": "Select category column (optional)",
     "noCategory": "No category",
     "categoryColors": "Category colors (click to customize)",
-    "previewRows": "Showing first 5 of {count} rows"
+    "previewRows": "Showing first 5 of {{count}} rows"
   },
   "convert": {
     "start": "Start — {{source}} ({{count}} items)",
@@ -140,6 +140,7 @@
     "title": "Polygon Extraction",
     "desc": "Query building/residential/park/commercial/administrative polygons from OpenStreetMap",
     "queryType": "Extraction Type",
+    "all": "All Regions",
     "building": "Building",
     "residential": "Residential",
     "park": "Park / Scenic",
@@ -163,6 +164,10 @@
     "drawPolyHint": "Click on the map to draw a polygon (double-click to finish)",
     "viewportHint": "📍 Pan/zoom the map to target area, then click Query to extract polygons in current view",
     "rendered": "Rendered {{count}} polygons on map"
+  },
+  "tabs": {
+    "geocoding": "Geocoding",
+    "polygon": "Polygon Extraction"
   },
   "theme": {
     "light": "Switch to light mode",

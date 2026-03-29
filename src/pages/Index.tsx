@@ -900,23 +900,12 @@ export default function Index() {
 
           {/* Tab B: Polygon Extraction */}
           <TabsContent value="polygon">
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-              <AreaQueryPanel
-                geoMapRef={geoMapRef}
-                onResults={(results) => {
-                  setAreaResults(results);
-                }}
-              />
-              <div className="rounded-xl border overflow-hidden min-h-[300px]">
-                <div className="h-[400px]">
-                  <GeoMap
-                    markers={[]}
-                    polygons={mapPolygons}
-                    className="h-full w-full"
-                  />
-                </div>
-              </div>
-            </div>
+            <AreaQueryPanel
+              geoMapRef={geoMapRef}
+              onResults={(results) => {
+                setAreaResults(results);
+              }}
+            />
           </TabsContent>
         </Tabs>
 
