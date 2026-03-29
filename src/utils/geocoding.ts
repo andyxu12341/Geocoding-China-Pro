@@ -20,6 +20,7 @@ export interface GeocodeItem {
   source?: MapSource;
   status: "success" | "failed";
   error?: string;
+  category?: string;
 }
 
 export interface BatchProgress {
@@ -274,6 +275,7 @@ export async function geocodeBatch(
   onProgress: (progress: BatchProgress) => void,
   signal?: AbortSignal,
   batchSize = 20,
+  addressToCategory?: Map<string, string>,
 ): Promise<GeocodeItem[]> {
   const results: GeocodeItem[] = [];
   const total = addresses.length;
@@ -294,6 +296,10 @@ export async function geocodeBatch(
       let item: GeocodeItem;
       try {
         item = await geocodeOne(address, config);
+        // Attach category if provided
+        if (addressToCategory?.has(address)) {
+          item.category = addressToCategory.get(address);
+        }
         // Ensure even successful-path errors are friendly
         if (item.status === "failed" && item.error) {
           item.error = friendlyError(item.error);

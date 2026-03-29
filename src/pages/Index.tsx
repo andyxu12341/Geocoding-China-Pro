@@ -190,6 +190,8 @@ export default function Index() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track abort/pause state to control toast/logical flow
+  const abortedRef = useRef(false);
 
   const [results, setResults] = useState<GeocodeItem[]>([]);
   const [isDone, setIsDone] = useState(false);
@@ -417,19 +419,38 @@ export default function Index() {
     startTimer(t0);
 
     try {
+      // Build optional address -> category mapping for export and UI
+      let addressToCategory: Map<string, string> | undefined;
+      if (categoryColumn && fileData.length > 0) {
+        addressToCategory = new Map<string, string>();
+        fileData.forEach(row => {
+          const addr = row[selectedColumn]?.trim();
+          const cat = row[categoryColumn]?.trim();
+          if (addr && cat) addressToCategory.set(addr, cat);
+        });
+      }
       const newResults = await geocodeBatch(
         addresses, config,
         (prog) => {
           setCompleted(resumeResults.length + prog.completed);
-          if (prog.latestResult) setResults(prev => [...prev, prog.latestResult!]);
+          if (prog.latestResult) {
+            if (addressToCategory?.has((prog.latestResult as GeocodeItem).address)) {
+              ;(prog.latestResult as GeocodeItem).category = addressToCategory.get((prog.latestResult as GeocodeItem).address)!;
+            }
+            setResults(prev => [...prev, prog.latestResult!]);
+          }
         },
         abortRef.current.signal,
         BATCH_SIZE,
+        addressToCategory,
       );
       setIsDone(true);
-      const sc = [...resumeResults, ...newResults].filter(r => r.status === "success").length;
-      const fc = [...resumeResults, ...newResults].filter(r => r.status === "failed").length;
-      toast({ title: "🎉 转换完成", description: `成功 ${sc} 条，失败 ${fc} 条。` });
+      const all = [...resumeResults, ...newResults];
+      const sc = all.filter(r => r.status === "success").length;
+      const fc = all.filter(r => r.status === "failed").length;
+      if (!abortedRef.current) {
+        toast({ title: "🎉 转换完成", description: `成功 ${sc} 条，失败 ${fc} 条。` });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "未知错误";
       toast({ title: "转换中断", description: msg, variant: "destructive" });
@@ -440,6 +461,7 @@ export default function Index() {
   };
 
   const handleConvert = () => {
+    abortedRef.current = false;
     const addresses = resolveAddresses();
     if (addresses.length === 0) {
       toast({ title: "请输入地址", variant: "destructive" });
@@ -455,6 +477,7 @@ export default function Index() {
     stopTimer();
     setIsProcessing(false);
     setShowCancelDialog(true);
+    abortedRef.current = true;
   };
 
   const handleResume = () => {
@@ -465,6 +488,7 @@ export default function Index() {
       setIsDone(true);
       return;
     }
+    abortedRef.current = false;
     runGeocoding(remaining, results);
   };
 

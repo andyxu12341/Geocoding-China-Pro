@@ -24,13 +24,15 @@ function escapeXml(str: string): string {
 const ts = () => new Date().toISOString().slice(0, 19).replace(/[:.]/g, "-");
 
 export function exportCSV(results: GeocodeItem[]) {
-  const headers = ["原始地址", "经度", "纬度", "格式化地址", "数据源", "状态", "错误信息"];
+  const headers = ["原始地址", "经度", "纬度", "格式化地址", "数据源", "类别", "状态", "错误信息"];
   const rows = results.map(r => [
     r.address, r.lng ?? "", r.lat ?? "",
     r.formattedAddress ?? "", r.source ?? "",
+    r.category ?? "",
     r.status === "success" ? "成功" : "失败",
     r.error ?? "",
   ]);
+  // Prepend category value if present to ensure alignment
   const body = [headers, ...rows]
     .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
     .join("\n");
@@ -50,6 +52,7 @@ export function exportGeoJSON(results: GeocodeItem[]) {
         address: r.address,
         formattedAddress: r.formattedAddress ?? null,
         source: r.source ?? null,
+        category: r.category ?? null,
       },
     }));
 
@@ -65,7 +68,7 @@ export function exportKML(results: GeocodeItem[]) {
   const placemarks = results
     .filter(r => r.status === "success" && r.lat && r.lng)
     .map(r =>
-      `  <Placemark>\n    <name>${escapeXml(r.address)}</name>\n    <description>${escapeXml(r.formattedAddress ?? "")}</description>\n    <Point><coordinates>${r.lng},${r.lat},0</coordinates></Point>\n  </Placemark>`
+      `  <Placemark>\n    <name>${escapeXml(r.address)}</name>\n    <description>${escapeXml((r.formattedAddress ?? "") + (r.category ? `\nCategory: ${r.category}` : ""))}</description>\n    <Point><coordinates>${r.lng},${r.lat},0</coordinates></Point>\n  </Placemark>`
     )
     .join("\n");
 
