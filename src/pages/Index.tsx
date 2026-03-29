@@ -422,7 +422,7 @@ export default function Index() {
       // Build optional address -> category mapping for export and UI
       let addressToCategory: Map<string, string> | undefined;
       if (categoryColumn && fileData.length > 0) {
-        addressToCategory = new Map<string, string>();
+        addressToCategory = new globalThis.Map<string, string>();
         fileData.forEach(row => {
           const addr = row[selectedColumn]?.trim();
           const cat = row[categoryColumn]?.trim();
