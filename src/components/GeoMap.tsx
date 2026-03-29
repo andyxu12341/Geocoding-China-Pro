@@ -43,6 +43,7 @@ export interface GeoMapHandle {
   cancelDraw: () => void;
   enableDrawRect: () => void;
   enableDrawPolygon: () => void;
+  invalidateSize: () => void;
 }
 
 const OSM_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -137,6 +138,10 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
         shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
         allowIntersection: false,
       }).enable();
+    },
+    invalidateSize: () => {
+      const map = mapRef.current;
+      if (map) map.invalidateSize({ animate: true });
     },
   }));
 

@@ -261,6 +261,35 @@ export default function Index() {
 
   const [areaResults, setAreaResults] = useState<AreaResult[]>([]);
 
+  // Layout mode for map invalidateSize
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : false
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const handler = (e: MediaQueryListEvent) => {
+      const wasDesktop = isDesktop;
+      setIsDesktop(e.matches);
+      if (wasDesktop !== e.matches) {
+        setTimeout(() => geoMapRef.current?.invalidateSize(), 100);
+      }
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [isDesktop]);
+
+  useEffect(() => {
+    if (appMode === "polygon") {
+      setTimeout(() => geoMapRef.current?.invalidateSize(), 150);
+    }
+  }, [appMode]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => geoMapRef.current?.invalidateSize(), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Dark mode with system sync
   const [darkMode, setDarkMode] = useState(getInitialDarkMode);
   const [userOverride, setUserOverride] = useState(() => {
@@ -623,6 +652,13 @@ export default function Index() {
 
               {/* Tab A: Point Geocoding */}
               <TabsContent value="geocoding" className="space-y-3">
+                <motion.div
+                  key="tab-geocoding"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  className="space-y-3"
+                >
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-sm">
@@ -816,85 +852,25 @@ export default function Index() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+                </motion.div>
               </TabsContent>
 
               {/* Tab B: Polygon Extraction */}
               <TabsContent value="polygon">
+                <motion.div
+                  key="tab-polygon"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                >
                 <AreaQueryPanel
                   geoMapRef={geoMapRef}
                   onResults={(results) => setAreaResults(results)}
                 />
+                </motion.div>
               </TabsContent>
             </Tabs>
 
-            {/* Results Table — shown below controls in left panel */}
-            <AnimatePresence>
-              {results.length > 0 && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 overflow-hidden">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-sm">
-                          {t("results.title")}
-                          <Badge variant="secondary" className="ml-1 text-xs">{results.length}</Badge>
-                        </CardTitle>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
-                              <Download className="h-3.5 w-3.5" /> {t("results.export")} <ChevronDown className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => exportCSV(results)}>📄 {t("results.exportCSV")}</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportGeoJSON(results)}>🗺️ {t("results.exportGeoJSON")}</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportKML(results)}>📍 {t("results.exportKML")}</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleExportPNG}>🖼️ {t("results.exportPNG")}</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="min-w-0 overflow-hidden p-0">
-                      <Table containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded text-xs">
-                        <TableHeader className="sticky top-0 z-10 bg-card">
-                          <TableRow>
-                            <TableHead className="whitespace-nowrap">{t("results.address")}</TableHead>
-                            <TableHead className="whitespace-nowrap">{t("results.lng")}</TableHead>
-                            <TableHead className="whitespace-nowrap">{t("results.lat")}</TableHead>
-                            <TableHead className="whitespace-nowrap">{t("results.status")}</TableHead>
-                            <TableHead className="w-[50px] whitespace-nowrap">{t("results.action")}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {results.map((r, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="max-w-[120px] truncate font-medium text-xs">{r.address}</TableCell>
-                              <TableCell className="whitespace-nowrap font-mono text-xs">{r.lng ?? "-"}</TableCell>
-                              <TableCell className="whitespace-nowrap font-mono text-xs">{r.lat ?? "-"}</TableCell>
-                              <TableCell className="whitespace-nowrap">
-                                {r.status === "success" ? <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-xs h-5">成功</Badge> : <Badge variant="destructive" className="text-xs h-5">{r.error || t("progress.failed")}</Badge>}
-                              </TableCell>
-                              <TableCell>
-                                {r.status === "success" && r.candidates && r.candidates.length > 1 && (
-                                  <Button size="sm" variant="outline" className="h-6 gap-1 text-xs px-1.5" onClick={() => setCandidateDialog({ address: r.address, candidates: r.candidates! })}>
-                                    <MapPin className="h-3 w-3" />
-                                  </Button>
-                                )}
-                                {r.status === "success" && (!r.candidates || r.candidates.length <= 1) && (
-                                  <button onClick={() => handleCopyCoords(r)} className="rounded p-1 text-muted-foreground hover:bg-accent" title={t("results.copyCoords")}>
-                                    <Copy className="h-3 w-3" />
-                                  </button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           {/* Right: map */}
