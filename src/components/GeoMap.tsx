@@ -33,6 +33,8 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
+  const osmLayerRef = useRef<L.TileLayer | null>(null);
+  const darkLayerRef = useRef<L.TileLayer | null>(null);
 
   useImperativeHandle(ref, () => ({ getMap: () => mapRef.current }));
 
@@ -49,11 +51,15 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     const osmLayer = L.tileLayer(OSM_URL, { attribution: OSM_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
     const satLayer = L.tileLayer(SAT_URL, { attribution: SAT_ATTR, maxZoom: 19 });
+    const darkLayer = L.tileLayer(DARK_URL, { attribution: DARK_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
+
+    osmLayerRef.current = osmLayer;
+    darkLayerRef.current = darkLayer;
 
     osmLayer.addTo(map);
 
     L.control.layers(
-      { "🗺️ 标准地图": osmLayer, "🛰️ 卫星图": satLayer },
+      { "🗺️ 标准地图": osmLayer, "🛰️ 卫星图": satLayer, "🌙 暗色地图": darkLayer },
       {},
       { position: "topright", collapsed: true }
     ).addTo(map);
