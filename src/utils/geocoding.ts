@@ -47,7 +47,7 @@ function jsonp<T>(url: string, timeout = 8000): Promise<T> {
 
     function cleanup() {
       clearTimeout(timer);
-      delete (window as Record<string, unknown>)[cbName];
+      delete (window as unknown as Record<string, unknown>)[cbName];
       script.remove();
     }
 
