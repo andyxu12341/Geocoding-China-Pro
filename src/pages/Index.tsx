@@ -261,35 +261,6 @@ export default function Index() {
 
   const [areaResults, setAreaResults] = useState<AreaResult[]>([]);
 
-  // Layout mode for map invalidateSize
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : false
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const handler = (e: MediaQueryListEvent) => {
-      const wasDesktop = isDesktop;
-      setIsDesktop(e.matches);
-      if (wasDesktop !== e.matches) {
-        setTimeout(() => geoMapRef.current?.invalidateSize(), 100);
-      }
-    };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [isDesktop]);
-
-  useEffect(() => {
-    if (appMode === "polygon") {
-      setTimeout(() => geoMapRef.current?.invalidateSize(), 150);
-    }
-  }, [appMode]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => geoMapRef.current?.invalidateSize(), 300);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Dark mode with system sync
   const [darkMode, setDarkMode] = useState(getInitialDarkMode);
   const [userOverride, setUserOverride] = useState(() => {
@@ -635,23 +606,24 @@ export default function Index() {
           <p className="mt-2 text-sm text-muted-foreground">{t("app.subtitle")}</p>
         </motion.div>
 
-        {/* Main workspace: responsive flex layout */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          {/* Left: control panel */}
-          <div className="w-full md:w-[400px] shrink-0 overflow-y-auto space-y-4 max-h-[calc(100vh-180px)] pr-1">
-            {/* App Mode Tabs */}
-            <Tabs value={appMode} onValueChange={(v) => setAppMode(v as "geocoding" | "polygon")}>
-              <TabsList className="w-full grid grid-cols-2 mb-3">
-                <TabsTrigger value="geocoding" className="gap-2">
-                  <MapPin className="h-4 w-4" /> {t("tabs.geocoding")}
-                </TabsTrigger>
-                <TabsTrigger value="polygon" className="gap-2">
-                  <Map className="h-4 w-4" /> {t("tabs.polygon")}
-                </TabsTrigger>
-              </TabsList>
+        {/* App Mode Tabs — top level navigation */}
+        <Tabs value={appMode} onValueChange={(v) => setAppMode(v as "geocoding" | "polygon")} className="mb-4">
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="geocoding" className="gap-2">
+              <MapPin className="h-4 w-4" /> {t("tabs.geocoding")}
+            </TabsTrigger>
+            <TabsTrigger value="polygon" className="gap-2">
+              <Map className="h-4 w-4" /> {t("tabs.polygon")}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Main workspace */}
+          <div className="flex flex-col md:flex-row gap-4 mt-4">
+            {/* Left: control panel */}
+            <div className="w-full md:w-[400px] shrink-0 space-y-4 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 120px)" }}>
 
               {/* Tab A: Point Geocoding */}
-              <TabsContent value="geocoding" className="space-y-3">
+              <TabsContent value="geocoding" className="mt-0 space-y-3">
                 <motion.div
                   key="tab-geocoding"
                   initial={{ opacity: 0, x: -8 }}
@@ -660,7 +632,7 @@ export default function Index() {
                   className="space-y-3"
                 >
                 <Card>
-                  <CardHeader className="pb-3">
+                <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-sm">
                       <Settings className="h-4 w-4" /> {t("settings.title")}
                     </CardTitle>
@@ -856,7 +828,7 @@ export default function Index() {
               </TabsContent>
 
               {/* Tab B: Polygon Extraction */}
-              <TabsContent value="polygon">
+              <TabsContent value="polygon" className="mt-0">
                 <motion.div
                   key="tab-polygon"
                   initial={{ opacity: 0, x: 8 }}
@@ -869,14 +841,11 @@ export default function Index() {
                 />
                 </motion.div>
               </TabsContent>
-            </Tabs>
+            </div>
 
-          </div>
-
-          {/* Right: map */}
-          <div className="flex-1 min-h-[300px] md:min-h-0">
-            <Card className="h-full">
-              <CardHeader className="pb-2">
+            {/* Map */}
+            <Card className="w-full md:flex-1 md:min-h-0">
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-sm">
                     <Map className="h-4 w-4" /> {t("map.title")}
@@ -888,8 +857,8 @@ export default function Index() {
                   </span>
                 </div>
               </CardHeader>
-              <CardContent className="p-2">
-                <div ref={mapContainerRef} className="h-[calc(100vh-240px)] md:h-full rounded-xl border overflow-hidden">
+              <CardContent className="p-6 pt-0">
+                <div ref={mapContainerRef} className="rounded-xl border overflow-hidden" style={{ height: "calc(100vh - 220px)" }}>
                   <GeoMap
                     ref={geoMapRef}
                     markers={mapMarkers}
@@ -902,7 +871,7 @@ export default function Index() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </Tabs>
 
         {/* Results Table + Export */}
         <AnimatePresence>

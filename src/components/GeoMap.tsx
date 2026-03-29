@@ -200,6 +200,18 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     };
   }, []);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    const map = mapRef.current;
+    if (!el || !map) return;
+
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize({ animate: false });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
 
 
   // Build color lookup from categoryColors
