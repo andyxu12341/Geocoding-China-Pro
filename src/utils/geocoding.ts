@@ -220,8 +220,10 @@ async function geocodeBaidu(address: string, apiKey: string, region?: string): P
 }
 
 // OpenStreetMap Nominatim
-async function geocodeOSM(address: string): Promise<GeocodeItem> {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&addressdetails=0`;
+async function geocodeOSM(address: string, region?: string): Promise<GeocodeItem> {
+  let q = address;
+  if (region) q = `${address}, ${region}`;
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&addressdetails=0`;
   const res = await fetch(url, {
     headers: {
       "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -267,7 +269,7 @@ async function geocodeOne(address: string, config: GeocodingConfig): Promise<Geo
         if (!config.baiduKey) throw new Error("缺少百度 API Key");
         return geocodeBaidu(address, config.baiduKey, region);
       case "osm":
-        return geocodeOSM(address);
+        return geocodeOSM(address, region);
     }
   });
 }

@@ -601,21 +601,19 @@ export default function Index() {
                 </div>
               )}
 
-              {mapSource !== "osm" && (
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <MapPin className="h-3 w-3" /> 限定搜索区域（可选）
-                  </label>
-                  <Input
-                    value={regionFilter}
-                    onChange={(e) => setRegionFilter(e.target.value)}
-                    placeholder="例如：山东 或 济南市"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    填写后将强制在该区域内搜索，杜绝跨省误匹配
-                  </p>
-                </div>
-              )}
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <MapPin className="h-3 w-3" /> 限定搜索区域（可选）
+                </label>
+                <Input
+                  value={regionFilter}
+                  onChange={(e) => setRegionFilter(e.target.value)}
+                  placeholder={mapSource === "osm" ? "例如：China、Beijing" : "例如：山东 或 济南市"}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {mapSource === "osm" ? "填写后将强制在该区域搜索" : "填写后将强制在该区域内搜索，杜绝跨省误匹配"}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -875,6 +873,7 @@ export default function Index() {
                           <TableHead className="whitespace-nowrap">经度</TableHead>
                           <TableHead className="whitespace-nowrap">纬度</TableHead>
                           <TableHead className="max-w-sm truncate whitespace-nowrap" title="格式化地址">格式化地址</TableHead>
+                          <TableHead className="whitespace-nowrap">类别</TableHead>
                           <TableHead className="whitespace-nowrap">状态</TableHead>
                           <TableHead className="w-[60px] whitespace-nowrap">操作</TableHead>
                         </TableRow>
@@ -886,6 +885,11 @@ export default function Index() {
                             <TableCell className="whitespace-nowrap font-mono text-xs">{r.lng ?? "-"}</TableCell>
                             <TableCell className="whitespace-nowrap font-mono text-xs">{r.lat ?? "-"}</TableCell>
                             <TableCell className="max-w-sm truncate whitespace-nowrap text-xs text-muted-foreground" title={r.formattedAddress ?? "-"}>{r.formattedAddress ?? "-"}</TableCell>
+                            <TableCell className="whitespace-nowrap text-xs">
+                              {r.category ? (
+                                <Badge variant="outline" className="text-xs">{r.category}</Badge>
+                              ) : "-"}
+                            </TableCell>
                             <TableCell className="whitespace-nowrap">
                               {r.status === "success" ? (
                                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-300">成功</Badge>
