@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -11,6 +11,11 @@ export interface MapMarker {
 interface GeoMapProps {
   markers: MapMarker[];
   className?: string;
+  autoFitDisabled?: boolean;
+}
+
+export interface GeoMapHandle {
+  getMap: () => L.Map | null;
 }
 
 const OSM_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -19,51 +24,33 @@ const OSM_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStree
 const SAT_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SAT_ATTR = "&copy; Esri &middot; Maxar &middot; Earthstar Geographics";
 
-const LABELS_URL = "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png";
-const LABELS_ATTR = '&copy; <a href="https://carto.com/">CartoDB</a>';
-
-export const GeoMap = forwardRef<HTMLDivElement, GeoMapProps>(({ markers, className }, ref) => {
+export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
-  const rotationRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hasStoppedRef = useRef(false);
+
+  useImperativeHandle(ref, () => ({ getMap: () => mapRef.current }));
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el || mapRef.current) return;
 
     const map = L.map(el, {
-      center: [20, 0],
-      zoom: 2,
+      center: [35, 105],
+      zoom: 4,
       zoomControl: true,
       attributionControl: true,
     });
 
-    const osmLayer = L.tileLayer(OSM_URL, {
-      attribution: OSM_ATTR,
-      maxZoom: 19,
-      crossOrigin: "anonymous",
-    });
-
-    const satLayer = L.tileLayer(SAT_URL, {
-      attribution: SAT_ATTR,
-      maxZoom: 19,
-    });
-
-    const labelsLayer = L.tileLayer(LABELS_URL, {
-      attribution: LABELS_ATTR,
-      maxZoom: 19,
-      crossOrigin: "anonymous",
-      pane: "overlayPane",
-    });
+    const osmLayer = L.tileLayer(OSM_URL, { attribution: OSM_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
+    const satLayer = L.tileLayer(SAT_URL, { attribution: SAT_ATTR, maxZoom: 19 });
 
     osmLayer.addTo(map);
 
     L.control.layers(
       { "🗺️ 标准地图": osmLayer, "🛰️ 卫星图": satLayer },
-      { "🏷️ 标注图层": labelsLayer },
+      {},
       { position: "topright", collapsed: true }
     ).addTo(map);
 
@@ -73,23 +60,7 @@ export const GeoMap = forwardRef<HTMLDivElement, GeoMapProps>(({ markers, classN
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
-    rotationRef.current = setInterval(() => {
-      if (!hasStoppedRef.current) {
-        map.panBy([3, 0], { animate: false });
-      }
-    }, 60);
-
-    const stopRotation = () => {
-      if (rotationRef.current) {
-        clearInterval(rotationRef.current);
-        rotationRef.current = null;
-        hasStoppedRef.current = true;
-      }
-    };
-    map.on("mousedown touchstart dragstart", stopRotation);
-
     return () => {
-      stopRotation();
       map.remove();
       mapRef.current = null;
     };
@@ -102,21 +73,12 @@ export const GeoMap = forwardRef<HTMLDivElement, GeoMapProps>(({ markers, classN
     if (!map || !layer || !renderer) return;
 
     layer.clearLayers();
-
     if (markers.length === 0) return;
-
-    if (!hasStoppedRef.current) {
-      if (rotationRef.current) {
-        clearInterval(rotationRef.current);
-        rotationRef.current = null;
-      }
-      hasStoppedRef.current = true;
-    }
 
     const latLngs: L.LatLngTuple[] = [];
 
     markers.forEach(m => {
-      L.circleMarker([m.lat, m.lng], {
+      const cm = L.circleMarker([m.lat, m.lng], {
         renderer,
         radius: 5,
         fillColor: "#6366f1",
@@ -127,33 +89,33 @@ export const GeoMap = forwardRef<HTMLDivElement, GeoMapProps>(({ markers, classN
       })
         .bindPopup(
           `<div style="font-weight:600;margin-bottom:2px">${m.label}</div>` +
-          `<div style="font-size:12px;color:#666">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>`
+          `<div style="font-size:12px;color:#666">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>`,
+          { closeButton: false }
         )
         .addTo(layer);
+
+      cm.on("mouseover", function (this: L.CircleMarker) { this.openPopup(); });
+      cm.on("mouseout", function (this: L.CircleMarker) { this.closePopup(); });
 
       latLngs.push([m.lat, m.lng]);
     });
 
-    if (latLngs.length === 1) {
-      map.setView(latLngs[0], 13, { animate: true, duration: 1.2 });
-    } else {
-      map.fitBounds(L.latLngBounds(latLngs), {
-        padding: [50, 50],
-        maxZoom: 14,
-        animate: true,
-        duration: 1,
-      });
+    if (!autoFitDisabled) {
+      if (latLngs.length === 1) {
+        map.setView(latLngs[0], 13, { animate: true, duration: 1.2 });
+      } else {
+        map.fitBounds(L.latLngBounds(latLngs), {
+          padding: [50, 50],
+          maxZoom: 14,
+          animate: true,
+          duration: 1,
+        });
+      }
     }
-  }, [markers]);
-
-  const setRefs = (el: HTMLDivElement | null) => {
-    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    if (typeof ref === "function") ref(el);
-    else if (ref) ref.current = el;
-  };
+  }, [markers, autoFitDisabled]);
 
   return (
-    <div ref={setRefs} className={className} style={{ width: "100%", height: "100%" }} />
+    <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />
   );
 });
 
