@@ -369,7 +369,14 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center relative">
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="absolute right-0 top-0 rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title={darkMode ? "切换亮色模式" : "切换暗色模式"}
+          >
+            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
             <MapPin className="h-8 w-8 text-primary" />
           </div>
