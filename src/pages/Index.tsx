@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import {
   MapPin, Key, Eye, EyeOff, UploadCloud, FileText,
   Play, Download, CheckCircle2, XCircle, Loader2,
-  Map, Settings, StopCircle, ChevronDown, Copy,
+  Map, Settings, StopCircle, ChevronDown, Copy, Sun, Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,7 +115,7 @@ export default function Index() {
   const [baiduKey, setBaiduKey] = useState("");
   const [showGaode, setShowGaode] = useState(false);
   const [showBaidu, setShowBaidu] = useState(false);
-  const [mapSource, setMapSource] = useState<MapSource>("gaode");
+  const [mapSource, setMapSource] = useState<MapSource>("osm");
 
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
   const [textInput, setTextInput] = useState("");
@@ -140,6 +140,58 @@ export default function Index() {
 
   // Auto-fit control
   const [autoFitDisabled, setAutoFitDisabled] = useState(false);
+
+  // Dark mode
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("theme") === "dark";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    try {
+      const { headers, rows } = await parseUploadFile(file);
+      setFileData(rows);
+      setFileHeaders(headers);
+      setFileName(file.name);
+      setInputMode("file");
+      const guess = headers.find(f => /地址|address|位置|名称|name/i.test(f)) || headers[0];
+      setSelectedColumn(guess);
+    } catch (err) {
+      toast({ title: "解析失败", description: err instanceof Error ? err.message : "文件格式不正确", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
 
   useEffect(() => {
     const map = geoMapRef.current?.getMap();
@@ -317,7 +369,14 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center relative">
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="absolute right-0 top-0 rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title={darkMode ? "切换亮色模式" : "切换暗色模式"}
+          >
+            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
             <MapPin className="h-8 w-8 text-primary" />
           </div>
@@ -418,10 +477,21 @@ export default function Index() {
               <div className="space-y-3">
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/20 p-8 transition-colors hover:border-primary/40 hover:bg-accent/50"
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors",
+                    isDragging
+                      ? "border-primary bg-primary/10"
+                      : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
+                  )}
                 >
-                  <UploadCloud className="mb-2 h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm font-medium text-muted-foreground">点击上传 CSV / Excel 文件</p>
+                  <UploadCloud className={cn("mb-2 h-8 w-8", isDragging ? "text-primary" : "text-muted-foreground")} />
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {isDragging ? "松开鼠标即可上传" : "点击或拖拽上传 CSV / Excel 文件"}
+                  </p>
                   <p className="text-xs text-muted-foreground">支持 .csv / .xls / .xlsx</p>
                   <input
                     ref={fileInputRef}
@@ -448,7 +518,7 @@ export default function Index() {
                     {/* Preview table */}
                     <div className="max-h-[200px] overflow-auto rounded-lg border">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-card">
                           <TableRow>
                             {fileHeaders.map(h => (
                               <TableHead key={h} className={cn("text-xs", h === selectedColumn && "bg-primary/10 font-bold")}>{h}</TableHead>
@@ -538,7 +608,7 @@ export default function Index() {
           </CardHeader>
           <CardContent>
             <div ref={mapContainerRef} className="h-[400px] overflow-hidden rounded-xl border">
-              <GeoMap ref={geoMapRef} markers={mapMarkers} className="h-full w-full" autoFitDisabled={autoFitDisabled} />
+              <GeoMap ref={geoMapRef} markers={mapMarkers} className="h-full w-full" autoFitDisabled={autoFitDisabled} darkMode={darkMode} />
             </div>
           </CardContent>
         </Card>
@@ -570,16 +640,16 @@ export default function Index() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="max-h-[400px] overflow-auto rounded-lg border">
+                <CardContent className="overflow-hidden">
+                  <div className="max-h-96 overflow-auto rounded-lg border">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="sticky top-0 z-10 bg-card">
                         <TableRow>
                           <TableHead className="min-w-[180px]">地址</TableHead>
-                          <TableHead>经度</TableHead>
-                          <TableHead>纬度</TableHead>
-                          <TableHead>格式化地址</TableHead>
-                          <TableHead>状态</TableHead>
+                          <TableHead className="min-w-[100px]">经度</TableHead>
+                          <TableHead className="min-w-[100px]">纬度</TableHead>
+                          <TableHead className="min-w-[200px]">格式化地址</TableHead>
+                          <TableHead className="min-w-[70px]">状态</TableHead>
                           <TableHead className="w-[60px]">操作</TableHead>
                         </TableRow>
                       </TableHeader>

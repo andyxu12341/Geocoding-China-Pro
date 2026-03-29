@@ -12,6 +12,7 @@ interface GeoMapProps {
   markers: MapMarker[];
   className?: string;
   autoFitDisabled?: boolean;
+  darkMode?: boolean;
 }
 
 export interface GeoMapHandle {
@@ -24,11 +25,16 @@ const OSM_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStree
 const SAT_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SAT_ATTR = "&copy; Esri &middot; Maxar &middot; Earthstar Geographics";
 
-export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled }, ref) => {
+const DARK_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const DARK_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
+
+export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled, darkMode }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
+  const osmLayerRef = useRef<L.TileLayer | null>(null);
+  const darkLayerRef = useRef<L.TileLayer | null>(null);
 
   useImperativeHandle(ref, () => ({ getMap: () => mapRef.current }));
 
@@ -45,11 +51,15 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     const osmLayer = L.tileLayer(OSM_URL, { attribution: OSM_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
     const satLayer = L.tileLayer(SAT_URL, { attribution: SAT_ATTR, maxZoom: 19 });
+    const darkLayer = L.tileLayer(DARK_URL, { attribution: DARK_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
+
+    osmLayerRef.current = osmLayer;
+    darkLayerRef.current = darkLayer;
 
     osmLayer.addTo(map);
 
     L.control.layers(
-      { "🗺️ 标准地图": osmLayer, "🛰️ 卫星图": satLayer },
+      { "🗺️ 标准地图": osmLayer, "🛰️ 卫星图": satLayer, "🌙 暗色地图": darkLayer },
       {},
       { position: "topright", collapsed: true }
     ).addTo(map);
@@ -65,6 +75,22 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       mapRef.current = null;
     };
   }, []);
+
+  // Switch tile layer based on darkMode
+  useEffect(() => {
+    const map = mapRef.current;
+    const osmLayer = osmLayerRef.current;
+    const dkLayer = darkLayerRef.current;
+    if (!map || !osmLayer || !dkLayer) return;
+
+    if (darkMode) {
+      if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+      if (!map.hasLayer(dkLayer)) dkLayer.addTo(map);
+    } else {
+      if (map.hasLayer(dkLayer)) map.removeLayer(dkLayer);
+      if (!map.hasLayer(osmLayer)) osmLayer.addTo(map);
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     const map = mapRef.current;
