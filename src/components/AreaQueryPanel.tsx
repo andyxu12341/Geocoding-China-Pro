@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Search, Maximize2, Square, Pentagon, Loader2, CheckCircle2, XCircle,
+  MapPin, Search, Maximize2, Square, Pentagon, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,11 +60,21 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const [keyword, setKeyword] = useState("");
   const [areaType, setAreaType] = useState<AreaQueryType>("building");
   const [isQuerying, setIsQuerying] = useState(false);
-  const [drawHint, setDrawHint] = useState(false);
 
-  const isDrawingMode = mode === "rectangle" || mode === "polygon";
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (mode === "rectangle") {
+      geoMapRef.current?.enableDrawRect();
+    } else if (mode === "polygon") {
+      geoMapRef.current?.enableDrawPolygon();
+    }
+  }, [mode, geoMapRef]);
 
   const handleQuery = async () => {
+    if (debounceRef.current) return;
+    debounceRef.current = setTimeout(() => { debounceRef.current = null; }, 800);
+
     if (mode === "semantic") {
       if (!keyword.trim()) {
         toast({ title: t("toast.noKeyword"), variant: "destructive" });
@@ -78,54 +88,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
       return;
     }
 
-    setIsQuerying(true);
-    setDrawHint(false);
-
-    try {
-      let results: AreaResult[];
-
-      if (mode === "semantic") {
-        results = await queryOSMArea("semantic", areaType, { keyword: keyword.trim() });
-      } else if (mode === "viewport") {
-        const bounds = geoMapRef.current?.getBounds();
-        if (!bounds) throw new Error("无法获取地图边界");
-        const bbox: [number, number, number, number] = [
-          bounds.getSouth(),
-          bounds.getWest(),
-          bounds.getNorth(),
-          bounds.getEast(),
-        ];
-        results = await queryOSMArea("viewport", areaType, { bbox });
-      } else {
-        toast({ title: t("toast.drawFirst"), description: t("toast.drawFirstHint") });
-        setDrawHint(true);
-        setIsQuerying(false);
-        return;
-      }
-
-      onResults(results);
-
-      if (results.length === 0) {
-        toast({ title: t("toast.areaNoResult"), description: t("toast.areaNoResultHint", { keyword: mode === "semantic" ? keyword : "" }) });
-      } else {
-        toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
-      }
-    } catch (err) {
-      toast({
-        title: t("toast.areaQueryFail"),
-        description: err instanceof Error ? err.message : t("toast.areaQueryFail"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsQuerying(false);
-    }
-  };
-
-  const handleDraw = (drawMode: "rectangle" | "polygon") => {
-    if (geoMapRef.current?.cancelDraw) geoMapRef.current.cancelDraw();
-    setDrawHint(true);
-
-    if (drawMode === "rectangle") {
+    if (mode === "rectangle") {
       geoMapRef.current?.startDrawRect((bounds) => {
         setIsQuerying(true);
         const bbox: [number, number, number, number] = [
@@ -140,7 +103,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             if (results.length === 0) {
               toast({ title: t("toast.areaNoResult"), variant: "destructive" });
             } else {
-              toast({ title: t("toast.areaQueryDone", { count: results.length }) });
+              toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
             }
           })
           .catch(err => {
@@ -148,7 +111,10 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
           })
           .finally(() => setIsQuerying(false));
       });
-    } else {
+      return;
+    }
+
+    if (mode === "polygon") {
       geoMapRef.current?.startDrawPolygon((latlngs) => {
         setIsQuerying(true);
         const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
@@ -158,7 +124,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             if (results.length === 0) {
               toast({ title: t("toast.areaNoResult"), variant: "destructive" });
             } else {
-              toast({ title: t("toast.areaQueryDone", { count: results.length }) });
+              toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
             }
           })
           .catch(err => {
@@ -166,6 +132,43 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
           })
           .finally(() => setIsQuerying(false));
       });
+      return;
+    }
+
+    setIsQuerying(true);
+
+    try {
+      let results: AreaResult[];
+
+      if (mode === "semantic") {
+        results = await queryOSMArea("semantic", areaType, { keyword: keyword.trim() });
+      } else {
+        const bounds = geoMapRef.current?.getBounds();
+        if (!bounds) throw new Error("无法获取地图边界");
+        const bbox: [number, number, number, number] = [
+          bounds.getSouth(),
+          bounds.getWest(),
+          bounds.getNorth(),
+          bounds.getEast(),
+        ];
+        results = await queryOSMArea("viewport", areaType, { bbox });
+      }
+
+      onResults(results);
+
+      if (results.length === 0) {
+        toast({ title: t("toast.areaNoResult"), description: t("toast.areaNoResultHint", { keyword: keyword }) });
+      } else {
+        toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
+      }
+    } catch (err) {
+      toast({
+        title: t("toast.areaQueryFail"),
+        description: err instanceof Error ? err.message : t("toast.areaQueryFail"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsQuerying(false);
     }
   };
 
@@ -199,7 +202,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
             {t("areaQuery.extractionMode")}
           </label>
-          <RadioGroup value={mode} onValueChange={v => { setMode(v as AreaQueryMode); setDrawHint(false); if (geoMapRef.current?.cancelDraw) geoMapRef.current.cancelDraw(); }} className="space-y-2">
+          <RadioGroup value={mode} onValueChange={v => setMode(v as AreaQueryMode)} className="space-y-2">
             {MODE_OPTIONS.map(opt => (
               <div key={opt.value} className="flex items-start gap-2.5 rounded-lg border p-2.5 hover:bg-accent/40 transition-colors">
                 <RadioGroupItem value={opt.value} id={opt.value} className="mt-0.5" />
@@ -248,42 +251,43 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             </motion.div>
           )}
 
-          {isDrawingMode && (
+          {mode === "rectangle" && (
             <motion.div
-              key="draw"
+              key="rect"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="space-y-2"
+              className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground"
             >
-              <Button
-                variant="outline"
-                className="w-full gap-1.5"
-                onClick={() => handleDraw(mode)}
-                disabled={isQuerying}
-              >
-                {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                  mode === "rectangle" ? <Square className="h-4 w-4" /> : <Pentagon className="h-4 w-4" />}
-                {t(mode === "rectangle" ? "areaQuery.startDrawRect" : "areaQuery.startDrawPoly")}
-              </Button>
-              {drawHint && (
-                <p className="text-xs text-center text-muted-foreground animate-pulse">
-                  {t(mode === "rectangle" ? "areaQuery.drawRectHint" : "areaQuery.drawPolyHint")}
-                </p>
-              )}
+              <Square className="inline h-3 w-3 mr-1" />
+              {t("areaQuery.viewportHint").replace("📍 ", "")} — {t("areaQuery.drawRectHint")}
+            </motion.div>
+          )}
+
+          {mode === "polygon" && (
+            <motion.div
+              key="poly"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground"
+            >
+              <Pentagon className="inline h-3 w-3 mr-1" />
+              {t("areaQuery.drawPolyHint")}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {mode !== "rectangle" && mode !== "polygon" && (
-          <Button
-            onClick={handleQuery}
-            disabled={isQuerying}
-            className="w-full gap-1.5"
-          >
-            {isQuerying ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("toast.areaQuery")}</> : <><Search className="h-4 w-4" /> {t("areaQuery.query")}</>}
-          </Button>
-        )}
+        <Button
+          onClick={handleQuery}
+          disabled={isQuerying}
+          className="w-full gap-1.5"
+        >
+          {isQuerying ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("toast.areaQuery")}...</> :
+            mode === "rectangle" ? <><Square className="h-4 w-4" /> {t("areaQuery.startDrawRect")}</> :
+            mode === "polygon" ? <><Pentagon className="h-4 w-4" /> {t("areaQuery.startDrawPoly")}</> :
+            <><Search className="h-4 w-4" /> {t("areaQuery.query")}</>}
+        </Button>
       </CardContent>
     </Card>
   );

@@ -41,6 +41,8 @@ export interface GeoMapHandle {
   startDrawRect: (onDone: (bounds: L.LatLngBounds) => void) => void;
   startDrawPolygon: (onDone: (latlngs: L.LatLng[]) => void) => void;
   cancelDraw: () => void;
+  enableDrawRect: () => void;
+  enableDrawPolygon: () => void;
 }
 
 const OSM_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -58,7 +60,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const polygonLayerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
-  const drawnItemsRef = useRef<L.Control | null>(null);
+  const drawLayerRef = useRef<L.FeatureGroup | null>(null);
   const osmLayerRef = useRef<L.TileLayer | null>(null);
   const darkLayerRef = useRef<L.TileLayer | null>(null);
   const legendRef = useRef<L.Control | null>(null);
@@ -72,43 +74,69 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     startDrawRect: (onDone) => {
       const map = mapRef.current;
       if (!map) return;
-      if (drawnItemsRef.current) map.removeControl(drawnItemsRef.current);
-      const drawnItems = new L.FeatureGroup();
-      map.addLayer(drawnItems);
-      drawnItemsRef.current = drawnItems as unknown as L.Control;
+      if (!drawLayerRef.current) {
+        drawLayerRef.current = new L.FeatureGroup();
+        map.addLayer(drawLayerRef.current);
+      }
+      drawLayerRef.current.clearLayers();
       const rect = new L.Draw.Rectangle(map, {
-        shapeOptions: { color: "#6366f1", weight: 2, fillOpacity: 0.2 },
+        shapeOptions: { color: "#6366f1", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
       });
       rect.enable();
       map.once("draw:created", (e: L.LeafletEvent) => {
         const layer = (e as L.DrawEvents.Created).layer as L.Rectangle;
-        drawnItems.addLayer(layer);
+        drawLayerRef.current!.addLayer(layer);
         onDone(layer.getBounds());
       });
     },
     startDrawPolygon: (onDone) => {
       const map = mapRef.current;
       if (!map) return;
-      if (drawnItemsRef.current) map.removeControl(drawnItemsRef.current);
-      const drawnItems = new L.FeatureGroup();
-      map.addLayer(drawnItems);
-      drawnItemsRef.current = drawnItems as unknown as L.Control;
+      if (!drawLayerRef.current) {
+        drawLayerRef.current = new L.FeatureGroup();
+        map.addLayer(drawLayerRef.current);
+      }
+      drawLayerRef.current.clearLayers();
       const poly = new L.Draw.Polygon(map, {
-        shapeOptions: { color: "#f59e0b", weight: 2, fillOpacity: 0.2 },
+        shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
         allowIntersection: false,
       });
       poly.enable();
       map.once("draw:created", (e: L.LeafletEvent) => {
         const layer = (e as L.DrawEvents.Created).layer as L.Polygon;
-        drawnItems.addLayer(layer);
+        drawLayerRef.current!.addLayer(layer);
         onDone(layer.getLatLngs()[0] as L.LatLng[]);
       });
     },
     cancelDraw: () => {
       const map = mapRef.current;
       if (!map) return;
-      if (drawnItemsRef.current) map.removeControl(drawnItemsRef.current);
-      drawnItemsRef.current = null;
+      drawLayerRef.current?.clearLayers();
+    },
+    enableDrawRect: () => {
+      const map = mapRef.current;
+      if (!map) return;
+      if (!drawLayerRef.current) {
+        drawLayerRef.current = new L.FeatureGroup();
+        map.addLayer(drawLayerRef.current);
+      }
+      drawLayerRef.current.clearLayers();
+      new L.Draw.Rectangle(map, {
+        shapeOptions: { color: "#6366f1", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
+      }).enable();
+    },
+    enableDrawPolygon: () => {
+      const map = mapRef.current;
+      if (!map) return;
+      if (!drawLayerRef.current) {
+        drawLayerRef.current = new L.FeatureGroup();
+        map.addLayer(drawLayerRef.current);
+      }
+      drawLayerRef.current.clearLayers();
+      new L.Draw.Polygon(map, {
+        shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
+        allowIntersection: false,
+      }).enable();
     },
   }));
 

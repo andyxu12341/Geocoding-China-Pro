@@ -606,336 +606,327 @@ export default function Index() {
           <p className="mt-2 text-sm text-muted-foreground">{t("app.subtitle")}</p>
         </motion.div>
 
-        {/* App Mode Tabs */}
-        <Tabs value={appMode} onValueChange={(v) => setAppMode(v as "geocoding" | "polygon")} className="mb-6">
-          <TabsList className="w-full grid grid-cols-2 mb-4">
-            <TabsTrigger value="geocoding" className="gap-2">
-              <MapPin className="h-4 w-4" /> {t("tabs.geocoding")}
-            </TabsTrigger>
-            <TabsTrigger value="polygon" className="gap-2">
-              <Map className="h-4 w-4" /> {t("tabs.polygon")}
-            </TabsTrigger>
-          </TabsList>
+        {/* Main workspace: responsive flex layout */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          {/* Left: control panel */}
+          <div className="w-full md:w-[400px] shrink-0 overflow-y-auto space-y-4 max-h-[calc(100vh-180px)] pr-1">
+            {/* App Mode Tabs */}
+            <Tabs value={appMode} onValueChange={(v) => setAppMode(v as "geocoding" | "polygon")}>
+              <TabsList className="w-full grid grid-cols-2 mb-3">
+                <TabsTrigger value="geocoding" className="gap-2">
+                  <MapPin className="h-4 w-4" /> {t("tabs.geocoding")}
+                </TabsTrigger>
+                <TabsTrigger value="polygon" className="gap-2">
+                  <Map className="h-4 w-4" /> {t("tabs.polygon")}
+                </TabsTrigger>
+              </TabsList>
 
-          {/* Tab A: Point Geocoding */}
-          <TabsContent value="geocoding" className="space-y-0">
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-              {/* Settings */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Settings className="h-4 w-4" /> {t("settings.title")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("settings.mapSource")}</label>
-                    <Select value={mapSource} onValueChange={(v) => setMapSource(v as MapSource)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gaode">{t("settings.gaode")}</SelectItem>
-                        <SelectItem value="baidu">{t("settings.baidu")}</SelectItem>
-                        <SelectItem value="osm">{t("settings.osm")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {mapSource === "osm" && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                      ⚠️ {t("settings.osmWarning")}
-                    </div>
-                  )}
-
-                  {mapSource === "gaode" && (
+              {/* Tab A: Point Geocoding */}
+              <TabsContent value="geocoding" className="space-y-3">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Settings className="h-4 w-4" /> {t("settings.title")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
                     <div>
-                      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                        <Key className="h-3 w-3" /> {t("settings.gaodeKey")}
-                      </label>
-                      <div className="relative">
-                        <Input type={showGaode ? "text" : "password"} value={gaodeKey} onChange={(e) => setGaodeKey(e.target.value)} placeholder={t("settings.gaodeKeyPlaceholder")} className="pr-10" />
-                        <button type="button" onClick={() => setShowGaode(!showGaode)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                          {showGaode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{t("settings.gaodeKeyHint")}</p>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("settings.mapSource")}</label>
+                      <Select value={mapSource} onValueChange={(v) => setMapSource(v as MapSource)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gaode">{t("settings.gaode")}</SelectItem>
+                          <SelectItem value="baidu">{t("settings.baidu")}</SelectItem>
+                          <SelectItem value="osm">{t("settings.osm")}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
 
-                  {mapSource === "baidu" && (
+                    {mapSource === "osm" && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        ⚠️ {t("settings.osmWarning")}
+                      </div>
+                    )}
+
+                    {mapSource === "gaode" && (
+                      <div>
+                        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          <Key className="h-3 w-3" /> {t("settings.gaodeKey")}
+                        </label>
+                        <div className="relative">
+                          <Input type={showGaode ? "text" : "password"} value={gaodeKey} onChange={(e) => setGaodeKey(e.target.value)} placeholder={t("settings.gaodeKeyPlaceholder")} className="pr-10 text-sm" />
+                          <button type="button" onClick={() => setShowGaode(!showGaode)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
+                            {showGaode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{t("settings.gaodeKeyHint")}</p>
+                      </div>
+                    )}
+
+                    {mapSource === "baidu" && (
+                      <div>
+                        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          <Key className="h-3 w-3" /> {t("settings.baiduKey")}
+                        </label>
+                        <div className="relative">
+                          <Input type={showBaidu ? "text" : "password"} value={baiduKey} onChange={(e) => setBaiduKey(e.target.value)} placeholder={t("settings.baiduKeyPlaceholder")} className="pr-10 text-sm" />
+                          <button type="button" onClick={() => setShowBaidu(!showBaidu)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
+                            {showBaidu ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{t("settings.baiduKeyHint")}</p>
+                      </div>
+                    )}
+
+                    {mapSource === "osm" && (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        ✅ {t("settings.osmFree")}
+                      </div>
+                    )}
+
+                    <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => { setHistoryList(loadHistory()); setShowHistoryDialog(true); }}>
+                      <History className="h-3.5 w-3.5" /> {t("settings.history")}
+                    </Button>
+
                     <div>
-                      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                        <Key className="h-3 w-3" /> {t("settings.baiduKey")}
+                      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                        <MapPin className="h-3 w-3" /> {t("settings.regionFilter")}
                       </label>
-                      <div className="relative">
-                        <Input type={showBaidu ? "text" : "password"} value={baiduKey} onChange={(e) => setBaiduKey(e.target.value)} placeholder={t("settings.baiduKeyPlaceholder")} className="pr-10" />
-                        <button type="button" onClick={() => setShowBaidu(!showBaidu)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                          {showBaidu ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{t("settings.baiduKeyHint")}</p>
+                      <Input value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} placeholder={mapSource === "osm" ? t("settings.regionFilterOsm") : t("settings.regionFilterOther")} className="text-sm" />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {mapSource === "osm" ? t("settings.regionFilterHintOsm") : t("settings.regionFilterHintOther")}
+                      </p>
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
 
-                  {mapSource === "osm" && (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                      ✅ {t("settings.osmFree")}
-                    </div>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 w-full"
-                    onClick={() => { setHistoryList(loadHistory()); setShowHistoryDialog(true); }}
-                  >
-                    <History className="h-3.5 w-3.5" /> {t("settings.history")}
-                  </Button>
-
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <MapPin className="h-3 w-3" /> {t("settings.regionFilter")}
-                    </label>
-                    <Input
-                      value={regionFilter}
-                      onChange={(e) => setRegionFilter(e.target.value)}
-                      placeholder={mapSource === "osm" ? t("settings.regionFilterOsm") : t("settings.regionFilterOther")}
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {mapSource === "osm" ? t("settings.regionFilterHintOsm") : t("settings.regionFilterHintOther")}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Data Input */}
-              <div className="min-w-0 w-full overflow-hidden">
-                <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
-                  <TabsList className="w-full">
-                    <TabsTrigger value="text" className="flex-1 gap-1.5">
-                      <FileText className="h-4 w-4" /> {t("input.textTab")}
-                    </TabsTrigger>
-                    <TabsTrigger value="file" className="flex-1 gap-1.5">
-                      <UploadCloud className="h-4 w-4" /> {t("input.fileTab")}
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="text" className="mt-3">
-                    <Textarea
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      placeholder={DEMO_ADDRESSES}
-                      className="min-h-[200px] resize-y"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {t("input.textHint")}
-                    </p>
-                  </TabsContent>
-                  <TabsContent value="file" className="mt-3">
-                    <div className="min-w-0 w-full space-y-3 overflow-hidden">
+                <div className="min-w-0 overflow-hidden">
+                  <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
+                    <TabsList className="w-full">
+                      <TabsTrigger value="text" className="flex-1 gap-1">
+                        <FileText className="h-3.5 w-3.5" /> {t("input.textTab")}
+                      </TabsTrigger>
+                      <TabsTrigger value="file" className="flex-1 gap-1">
+                        <UploadCloud className="h-3.5 w-3.5" /> {t("input.fileTab")}
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="text" className="mt-2">
+                      <Textarea value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder={DEMO_ADDRESSES} className="min-h-[120px] resize-y text-sm" />
+                      <p className="mt-1 text-xs text-muted-foreground">{t("input.textHint")}</p>
+                    </TabsContent>
+                    <TabsContent value="file" className="mt-2">
                       <div
                         onClick={() => fileInputRef.current?.click()}
                         onDragOver={handleDragOver}
                         onDragEnter={handleDragEnter}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
-                        className={cn(
-                          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors",
-                          isDragging
-                            ? "border-primary bg-primary/10"
-                            : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
-                        )}
+                        className={cn("flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors", isDragging ? "border-primary bg-primary/10" : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50")}
                       >
-                        <UploadCloud className={cn("mb-2 h-8 w-8", isDragging ? "text-primary" : "text-muted-foreground")} />
-                        <p className="text-sm font-medium text-muted-foreground">
-                          {isDragging ? t("input.fileUploading") : t("input.fileDrag")}
-                        </p>
+                        <UploadCloud className={cn("mb-1 h-6 w-6", isDragging ? "text-primary" : "text-muted-foreground")} />
+                        <p className="text-xs font-medium text-muted-foreground">{isDragging ? t("input.fileUploading") : t("input.fileDrag")}</p>
                         <p className="text-xs text-muted-foreground">{t("input.fileHint")}</p>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                          className="hidden"
-                          onChange={handleFileUpload}
-                        />
+                        <input ref={fileInputRef} type="file" accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleFileUpload} />
                       </div>
                       {fileHeaders.length > 0 && (
-                        <>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                              <div>
-                                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                                  📂 {fileName} — {t("input.addressCol")}
-                                </label>
-                                <Select value={selectedColumn} onValueChange={setSelectedColumn}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    {fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                                <p className="mt-1 text-xs text-muted-foreground">{t("input.rowsLoaded", { count: fileData.length })}</p>
-                              </div>
-                              <div>
-                                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                                  🏷️ {t("input.categoryCol")}
-                                </label>
-                                <Select value={categoryColumn} onValueChange={setCategoryColumn}>
-                                  <SelectTrigger><SelectValue placeholder={t("input.noCategory")} /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="__none__">{t("input.noCategory")}</SelectItem>
-                                    {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                        <div className="mt-2 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-muted-foreground">📂 {fileName} — {t("input.addressCol")}</label>
+                              <Select value={selectedColumn} onValueChange={setSelectedColumn}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>{fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
+                              </Select>
+                              <p className="mt-1 text-xs text-muted-foreground">{t("input.rowsLoaded", { count: fileData.length })}</p>
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-muted-foreground">🏷️ {t("input.categoryCol")}</label>
+                              <Select value={categoryColumn} onValueChange={setCategoryColumn}>
+                                <SelectTrigger><SelectValue placeholder={t("input.noCategory")} /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">{t("input.noCategory")}</SelectItem>
+                                  {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
-
                           {categoryColumn && categoryColumn !== "__none__" && categoryValues.length > 0 && (
-                            <div className="rounded-lg border p-3">
-                              <p className="mb-2 text-xs font-medium text-muted-foreground">🎨 {t("input.categoryColors")}</p>
-                              <div className="flex flex-wrap gap-2">
+                            <div className="rounded-lg border p-2">
+                              <p className="mb-1 text-xs font-medium text-muted-foreground">🎨 {t("input.categoryColors")}</p>
+                              <div className="flex flex-wrap gap-1.5">
                                 {categoryValues.map(v => (
-                                  <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent">
-                                    <input
-                                      type="color"
-                                      value={customColors[v] || CATEGORY_PALETTE[0]}
-                                      onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))}
-                                      className="h-4 w-4 cursor-pointer border-0 p-0"
-                                    />
-                                    <span className="max-w-[100px] truncate">{v}</span>
+                                  <label key={v} className="flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs hover:bg-accent">
+                                    <input type="color" value={customColors[v] || CATEGORY_PALETTE[0]} onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))} className="h-3.5 w-3.5 cursor-pointer border-0 p-0" />
+                                    <span className="max-w-[80px] truncate">{v}</span>
                                   </label>
                                 ))}
                               </div>
                             </div>
                           )}
-
-                          <div className="min-w-0 w-full overflow-hidden">
-                            <Table
-                              className="w-full whitespace-nowrap text-left text-sm"
-                              containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded-md"
-                            >
+                          <div className="overflow-hidden">
+                            <Table containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[200px] border rounded text-xs">
                               <TableHeader className="sticky top-0 z-10 bg-card">
-                                <TableRow>
-                                  {fileHeaders.map(h => (
-                                    <TableHead
-                                      key={h}
-                                      title={h}
-                                      className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/10 font-bold")}
-                                    >
-                                      {h}
-                                    </TableHead>
-                                  ))}
-                                </TableRow>
+                                <TableRow>{fileHeaders.map(h => <TableHead key={h} title={h} className={cn("max-w-[120px] truncate text-xs", h === selectedColumn && "bg-primary/10 font-bold")}>{h}</TableHead>)}</TableRow>
                               </TableHeader>
                               <TableBody>
                                 {fileData.slice(0, 5).map((row, i) => (
-                                  <TableRow key={i}>
-                                    {fileHeaders.map(h => (
-                                      <TableCell
-                                        key={h}
-                                        title={String(row[h] ?? "")}
-                                        className={cn("max-w-xs truncate whitespace-nowrap text-xs", h === selectedColumn && "bg-primary/5 font-medium")}
-                                      >
-                                        {row[h] ?? ""}
-                                      </TableCell>
-                                    ))}
-                                  </TableRow>
+                                  <TableRow key={i}>{fileHeaders.map(h => <TableCell key={h} title={String(row[h] ?? "")} className={cn("max-w-[120px] truncate text-xs", h === selectedColumn && "bg-primary/5 font-medium")}>{row[h] ?? ""}</TableCell>)}</TableRow>
                                 ))}
                               </TableBody>
                             </Table>
-                            {fileData.length > 5 && (
-                              <p className="pt-2 text-center text-xs text-muted-foreground">
-                                {t("input.previewRows", { count: fileData.length })}
-                              </p>
-                            )}
+                            {fileData.length > 5 && <p className="pt-1 text-center text-xs text-muted-foreground">{t("input.previewRows", { count: fileData.length })}</p>}
                           </div>
-                        </>
+                        </div>
                       )}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
 
-            {/* Convert Button */}
-            <div className="mt-6">
-              {isProcessing ? (
-                <Button variant="destructive" size="lg" className="w-full gap-2" onClick={handleStop}>
-                  <StopCircle className="h-5 w-5" /> {t("convert.stop")}
-                </Button>
-              ) : (
-                <Button size="lg" className="w-full gap-2" disabled={!canStart} onClick={handleConvert}>
-                  <Play className="h-5 w-5" /> {t("convert.start", { source: SOURCE_LABELS[mapSource], count: displayCount })}
-                </Button>
-              )}
-            </div>
+                {/* Convert Button */}
+                {isProcessing ? (
+                  <Button variant="destructive" size="lg" className="w-full gap-2" onClick={handleStop}>
+                    <StopCircle className="h-5 w-5" /> {t("convert.stop")}
+                  </Button>
+                ) : (
+                  <Button size="lg" className="w-full gap-2" disabled={!canStart} onClick={handleConvert}>
+                    <Play className="h-5 w-5" /> {t("convert.start", { source: SOURCE_LABELS[mapSource], count: displayCount })}
+                  </Button>
+                )}
 
-            {/* Progress */}
+                {/* Progress */}
+                <AnimatePresence>
+                  {(isProcessing || isDone) && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="mb-3 flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              {isProcessing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("progress.processing")}</> : <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> {t("progress.done")}</>}
+                            </span>
+                            <span className="font-mono text-xs text-muted-foreground">{completed} / {total}{eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}</span>
+                          </div>
+                          <Progress value={progress} className="h-1.5" />
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            <StatsCard title={t("progress.total")} value={total} icon={<Map className="h-4 w-4" />} color="blue" />
+                            <StatsCard title={t("progress.success")} value={successCount} icon={<CheckCircle2 className="h-4 w-4" />} color="emerald" />
+                            <StatsCard title={t("progress.failed")} value={failedCount} icon={<XCircle className="h-4 w-4" />} color="rose" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </TabsContent>
+
+              {/* Tab B: Polygon Extraction */}
+              <TabsContent value="polygon">
+                <AreaQueryPanel
+                  geoMapRef={geoMapRef}
+                  onResults={(results) => setAreaResults(results)}
+                />
+              </TabsContent>
+            </Tabs>
+
+            {/* Results Table — shown below controls in left panel */}
             <AnimatePresence>
-          {(isProcessing || isDone) && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="mb-4 flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      {isProcessing ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" /> {t("progress.processing")}</>
-                      ) : (
-                        <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t("progress.done")}</>
-                      )}
-                    </span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {completed} / {total}
-                      {eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}
-                    </span>
-                  </div>
-                  <Progress value={progress} className="h-2" />
-                  <div className="mt-4 grid grid-cols-3 gap-3">
-                    <StatsCard title={t("progress.total")} value={total} icon={<Map className="h-5 w-5" />} color="blue" />
-                    <StatsCard title={t("progress.success")} value={successCount} icon={<CheckCircle2 className="h-5 w-5" />} color="emerald" />
-                    <StatsCard title={t("progress.failed")} value={failedCount} icon={<XCircle className="h-5 w-5" />} color="rose" />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-          </AnimatePresence>
-          </TabsContent>
+              {results.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 overflow-hidden">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-sm">
+                          {t("results.title")}
+                          <Badge variant="secondary" className="ml-1 text-xs">{results.length}</Badge>
+                        </CardTitle>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
+                              <Download className="h-3.5 w-3.5" /> {t("results.export")} <ChevronDown className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => exportCSV(results)}>📄 {t("results.exportCSV")}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportGeoJSON(results)}>🗺️ {t("results.exportGeoJSON")}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportKML(results)}>📍 {t("results.exportKML")}</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleExportPNG}>🖼️ {t("results.exportPNG")}</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="min-w-0 overflow-hidden p-0">
+                      <Table containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded text-xs">
+                        <TableHeader className="sticky top-0 z-10 bg-card">
+                          <TableRow>
+                            <TableHead className="whitespace-nowrap">{t("results.address")}</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.lng")}</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.lat")}</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.status")}</TableHead>
+                            <TableHead className="w-[50px] whitespace-nowrap">{t("results.action")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {results.map((r, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="max-w-[120px] truncate font-medium text-xs">{r.address}</TableCell>
+                              <TableCell className="whitespace-nowrap font-mono text-xs">{r.lng ?? "-"}</TableCell>
+                              <TableCell className="whitespace-nowrap font-mono text-xs">{r.lat ?? "-"}</TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {r.status === "success" ? <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-xs h-5">成功</Badge> : <Badge variant="destructive" className="text-xs h-5">{r.error || t("progress.failed")}</Badge>}
+                              </TableCell>
+                              <TableCell>
+                                {r.status === "success" && r.candidates && r.candidates.length > 1 && (
+                                  <Button size="sm" variant="outline" className="h-6 gap-1 text-xs px-1.5" onClick={() => setCandidateDialog({ address: r.address, candidates: r.candidates! })}>
+                                    <MapPin className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {r.status === "success" && (!r.candidates || r.candidates.length <= 1) && (
+                                  <button onClick={() => handleCopyCoords(r)} className="rounded p-1 text-muted-foreground hover:bg-accent" title={t("results.copyCoords")}>
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-          {/* Tab B: Polygon Extraction */}
-          <TabsContent value="polygon">
-            <AreaQueryPanel
-              geoMapRef={geoMapRef}
-              onResults={(results) => {
-                setAreaResults(results);
-              }}
-            />
-          </TabsContent>
-        </Tabs>
-
-        {/* Map */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Map className="h-4 w-4" /> {t("map.title")}
-              </CardTitle>
-              <span className="text-xs text-muted-foreground">
-                {mapMarkers.length > 0 || mapPolygons.length > 0
-                  ? `${mapMarkers.length > 0 ? t("map.markers", { count: mapMarkers.length }) : ""}${mapMarkers.length > 0 && mapPolygons.length > 0 ? " · " : ""}${mapPolygons.length > 0 ? t("map.polygons", { count: mapPolygons.length }) : ""}`
-                  : t("map.waiting")}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div ref={mapContainerRef} className="h-[400px] overflow-hidden rounded-xl border">
-              <GeoMap
-                ref={geoMapRef}
-                markers={mapMarkers}
-                polygons={mapPolygons}
-                className="h-full w-full"
-                autoFitDisabled={autoFitDisabled}
-                categoryColors={categoryColorList.length > 0 ? categoryColorList : undefined}
-              />
-            </div>
-          </CardContent>
-        </Card>
+          {/* Right: map */}
+          <div className="flex-1 min-h-[300px] md:min-h-0">
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Map className="h-4 w-4" /> {t("map.title")}
+                  </CardTitle>
+                  <span className="text-xs text-muted-foreground">
+                    {mapMarkers.length > 0 || mapPolygons.length > 0
+                      ? `${mapMarkers.length > 0 ? t("map.markers", { count: mapMarkers.length }) : ""}${mapMarkers.length > 0 && mapPolygons.length > 0 ? " · " : ""}${mapPolygons.length > 0 ? t("map.polygons", { count: mapPolygons.length }) : ""}`
+                      : t("map.waiting")}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="p-2">
+                <div ref={mapContainerRef} className="h-[calc(100vh-240px)] md:h-full rounded-xl border overflow-hidden">
+                  <GeoMap
+                    ref={geoMapRef}
+                    markers={mapMarkers}
+                    polygons={mapPolygons}
+                    className="h-full w-full"
+                    autoFitDisabled={autoFitDisabled}
+                    categoryColors={categoryColorList.length > 0 ? categoryColorList : undefined}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
         {/* Results Table + Export */}
         <AnimatePresence>

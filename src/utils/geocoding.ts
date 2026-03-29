@@ -448,7 +448,11 @@ export async function geocodeBatch(
 
 // ── Overpass API for area/polygon queries ──
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
 
 interface OverpassElement {
   type: "node" | "way" | "relation";
@@ -593,28 +597,43 @@ export async function queryOSMArea(
     query = buildPolygonOverpassQuery(params.polygonLatLngs, areaType);
   }
 
-  const res = await fetch(OVERPASS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
-    },
-    body: `data=${encodeURIComponent(query)}`,
-    signal: signal || AbortSignal.timeout(60000),
-  });
+  let lastErr: Error | null = null;
+  let data: OverpassResponse | null = null;
+  for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
+    const endpoint = OVERPASS_ENDPOINTS[i];
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
+        },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: signal || AbortSignal.timeout(90000),
+      });
 
-  if (!res.ok) {
-    if (res.status === 400) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Overpass 查询语法错误（HTTP 400）: ${text.slice(0, 200)}`);
+      if (res.status === 400) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Overpass 查询语法错误（HTTP 400）: ${text.slice(0, 200)}`);
+      }
+      if (res.status === 429) {
+        lastErr = new Error("Overpass API 请求过于频繁，请稍后再试（HTTP 429）");
+        if (i < OVERPASS_ENDPOINTS.length - 1) continue;
+        throw lastErr;
+      }
+      if (!res.ok) {
+        throw new Error(`Overpass API 错误: HTTP ${res.status}`);
+      }
+
+      data = await res.json() as OverpassResponse;
+      break;
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      if (i < OVERPASS_ENDPOINTS.length - 1) continue;
     }
-    if (res.status === 429) {
-      throw new Error("Overpass API 请求过于频繁，请稍后再试（HTTP 429）");
-    }
-    throw new Error(`Overpass API 错误: HTTP ${res.status}`);
   }
 
-  const data = await res.json() as OverpassResponse;
+  if (!data) throw lastErr || new Error("Overpass 查询失败");
 
   const results: AreaResult[] = [];
   for (const el of data.elements) {
