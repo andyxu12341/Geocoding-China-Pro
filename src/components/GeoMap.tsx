@@ -10,6 +10,15 @@ export interface MapMarker {
   category?: string;
 }
 
+export interface MapPolygon {
+  id: string;
+  rings: number[][][]; // [[[lng, lat], ...]]
+  label: string;
+  tags?: Record<string, string>;
+  osmId?: number;
+  osmType?: string;
+}
+
 export interface CategoryColor {
   category: string;
   color: string;
@@ -20,6 +29,7 @@ interface GeoMapProps {
   className?: string;
   autoFitDisabled?: boolean;
   categoryColors?: CategoryColor[];
+  polygons?: MapPolygon[];
 }
 
 export interface GeoMapHandle {
@@ -35,14 +45,17 @@ const GEOQ_ATTR = '&copy; <a href="https://www.geoq.cn">智图科技</a>';
 
 const DEFAULT_MARKER_COLOR = "#6366f1";
 
-export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled, categoryColors }, ref) => {
+export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled, categoryColors, polygons }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
+  const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  const polygonLayerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
   const osmLayerRef = useRef<L.TileLayer | null>(null);
   const darkLayerRef = useRef<L.TileLayer | null>(null);
   const legendRef = useRef<L.Control | null>(null);
+
+  const POLYGON_COLORS = ["#e15759", "#4e79a7", "#59a14f", "#f28e2b", "#b07aa1", "#76b7b2", "#edc948", "#ff9da7"];
 
   useImperativeHandle(ref, () => ({ getMap: () => mapRef.current }));
 
@@ -91,7 +104,8 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
 
     rendererRef.current = L.canvas({ padding: 0.5 });
-    layerRef.current = L.layerGroup().addTo(map);
+    markerLayerRef.current = L.layerGroup().addTo(map);
+    polygonLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
     return () => {
@@ -108,11 +122,13 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
   useEffect(() => {
     const map = mapRef.current;
-    const layer = layerRef.current;
+    const mLayer = markerLayerRef.current;
+    const pLayer = polygonLayerRef.current;
     const renderer = rendererRef.current;
-    if (!map || !layer || !renderer) return;
+    if (!map || !mLayer || !pLayer || !renderer) return;
 
-    layer.clearLayers();
+    mLayer.clearLayers();
+    pLayer.clearLayers();
 
     // Remove old legend
     if (legendRef.current) {
@@ -120,10 +136,11 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       legendRef.current = null;
     }
 
-    if (markers.length === 0) return;
+    if (markers.length === 0 && (!polygons || polygons.length === 0)) return;
 
     const latLngs: L.LatLngTuple[] = [];
 
+    // Render markers
     markers.forEach(m => {
       const fillColor = (m.category && colorMap.get(m.category)) || DEFAULT_MARKER_COLOR;
       const cm = L.circleMarker([m.lat, m.lng], {
@@ -140,7 +157,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
           `<div style="font-size:12px;color:#666">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>`,
           { closeButton: false }
         )
-        .addTo(layer);
+        .addTo(mLayer);
 
       cm.on("mouseover", function (this: L.CircleMarker) { this.openPopup(); });
       cm.on("mouseout", function (this: L.CircleMarker) { this.closePopup(); });
@@ -148,14 +165,53 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       latLngs.push([m.lat, m.lng]);
     });
 
-    // Add legend if categories exist
-    if (categoryColors && categoryColors.length > 0) {
+    // Render polygons
+    polygons?.forEach((poly, i) => {
+      const color = POLYGON_COLORS[i % POLYGON_COLORS.length];
+      poly.rings.forEach(ring => {
+        const latLngRing: L.LatLngExpression[] = ring.map(c => [c[1], c[0]] as L.LatLngTuple);
+        if (latLngRing.length < 3) return;
+
+        const tags = poly.tags || {};
+        const tagLines = Object.entries(tags)
+          .filter(([k]) => ["name", "landuse", "leisure", "building", "boundary", "admin_level"].includes(k))
+          .map(([k, v]) => `<div style="font-size:11px"><b>${k}:</b> ${v}</div>`)
+          .join("");
+
+        L.polygon(latLngRing, {
+          renderer,
+          color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.18,
+          interactive: true,
+        })
+          .bindPopup(
+            `<div style="font-weight:600;margin-bottom:4px">${poly.label}</div>` +
+            `<div style="font-size:11px;color:#666">${tagLines || "OSM 多边形数据"}</div>`,
+            { closeButton: false }
+          )
+          .addTo(pLayer);
+
+        latLngs.push(latLngRing[0] as L.LatLngTuple);
+      });
+    });
+
+    // Add legend
+    const legendItems: { color: string; label: string }[] = [];
+    categoryColors?.forEach(cc => legendItems.push({ color: cc.color, label: cc.category }));
+    polygons?.forEach((poly, i) => {
+      const color = POLYGON_COLORS[i % POLYGON_COLORS.length];
+      legendItems.push({ color, label: poly.label });
+    });
+
+    if (legendItems.length > 0) {
       const legend = new L.Control({ position: "bottomright" });
       legend.onAdd = () => {
         const div = L.DomUtil.create("div", "leaflet-legend");
         div.style.cssText = "background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);padding:8px 12px;border-radius:8px;font-size:12px;line-height:20px;box-shadow:0 2px 8px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;";
-        div.innerHTML = categoryColors.map(cc =>
-          `<div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${cc.color};border:1px solid #fff;box-shadow:0 0 2px rgba(0,0,0,0.3);"></span>${cc.category}</div>`
+        div.innerHTML = legendItems.map(item =>
+          `<div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${item.color};border:1px solid #fff;box-shadow:0 0 2px rgba(0,0,0,0.3);"></span>${item.label}</div>`
         ).join("");
         return div;
       };
@@ -163,7 +219,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       legendRef.current = legend;
     }
 
-    if (!autoFitDisabled) {
+    if (!autoFitDisabled && latLngs.length > 0) {
       if (latLngs.length === 1) {
         map.setView(latLngs[0], 13, { animate: true, duration: 1.2 });
       } else {
@@ -176,7 +232,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markers, autoFitDisabled, categoryColors]);
+  }, [markers, autoFitDisabled, categoryColors, polygons]);
 
   return (
     <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />

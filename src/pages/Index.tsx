@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -26,9 +27,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig } from "@/utils/geocoding";
+import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, queryOSMArea, type AreaResult, type AreaQueryType } from "@/utils/geocoding";
 import { exportCSV, exportGeoJSON, exportKML, exportMapPNG } from "@/utils/exportUtils";
-import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor } from "@/components/GeoMap";
+import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
 
 const DEMO_ADDRESSES = "北京故宫\n上海东方明珠\n广州塔\n深圳平安金融中心\n成都大熊猫繁育研究基地";
 
@@ -201,6 +202,13 @@ export default function Index() {
   // Auto-fit control
   const [autoFitDisabled, setAutoFitDisabled] = useState(false);
 
+  // OSM area query
+  const [queryMode, setQueryMode] = useState<"point" | "area">("point");
+  const [areaKeyword, setAreaKeyword] = useState("");
+  const [areaType, setAreaType] = useState<AreaQueryType>("building");
+  const [areaResults, setAreaResults] = useState<AreaResult[]>([]);
+  const [isQueryingArea, setIsQueryingArea] = useState(false);
+
   // Dark mode with system sync
   const [darkMode, setDarkMode] = useState(getInitialDarkMode);
   const [userOverride, setUserOverride] = useState(() => {
@@ -331,6 +339,15 @@ export default function Index() {
     }));
   }, [categoryValues, customColors]);
 
+  const mapPolygons: MapPolygon[] = areaResults.map((r, i) => ({
+    id: `${r.osmId}`,
+    rings: r.polygon,
+    label: r.name,
+    tags: r.tags,
+    osmId: r.osmId,
+    osmType: r.osmType,
+  }));
+
   const progress = total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
   const eta = (() => {
     if (!isProcessing || completed === 0 || !startTime) return null;
@@ -357,7 +374,7 @@ export default function Index() {
 
   const addressCount = getAddresses().length;
   const keyMissing = (mapSource === "gaode" && !gaodeKey.trim()) || (mapSource === "baidu" && !baiduKey.trim());
-  const canStart = !keyMissing && !isProcessing;
+  const canStart = !keyMissing && !isProcessing && queryMode === "point";
 
   const startTimer = (t0: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -457,6 +474,33 @@ export default function Index() {
     runGeocoding(addresses);
   };
 
+  const handleAreaQuery = async () => {
+    const kw = areaKeyword.trim();
+    if (!kw) {
+      toast({ title: "请输入关键词", variant: "destructive" });
+      return;
+    }
+    setIsQueryingArea(true);
+    setAreaResults([]);
+    try {
+      const results = await queryOSMArea(kw, areaType);
+      setAreaResults(results);
+      if (results.length === 0) {
+        toast({ title: "未找到结果", description: `在 OSM 中未找到「${kw}」相关的面数据` });
+      } else {
+        toast({ title: `找到 ${results.length} 个面数据`, description: `类型：${areaType}` });
+      }
+    } catch (err) {
+      toast({
+        title: "查询失败",
+        description: err instanceof Error ? err.message : "Overpass API 请求失败",
+        variant: "destructive",
+      });
+    } finally {
+      setIsQueryingArea(false);
+    }
+  };
+
   const handleStop = () => {
     abortRef.current?.abort();
     stopTimer();
@@ -543,6 +587,58 @@ export default function Index() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="flex items-center justify-between rounded-lg border bg-accent/40 px-3 py-2">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium">面域查询（OSM）</span>
+                  <span className="text-xs text-muted-foreground">从 OpenStreetMap 查询建筑物/地块轮廓面数据</span>
+                </div>
+                <Switch
+                  checked={queryMode === "area"}
+                  onCheckedChange={(checked) => {
+                    setQueryMode(checked ? "area" : "point");
+                    setAreaResults([]);
+                  }}
+                />
+              </div>
+
+              {queryMode === "area" && (
+                <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">查询类型</label>
+                    <Select value={areaType} onValueChange={(v) => setAreaType(v as AreaQueryType)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="building">🏢 建筑</SelectItem>
+                        <SelectItem value="residential">🏘️ 住宅区</SelectItem>
+                        <SelectItem value="park">🏞️ 景区/公园</SelectItem>
+                        <SelectItem value="commercial">🏬 功能区/商业</SelectItem>
+                        <SelectItem value="administrative">🏛️ 行政区</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">关键词</label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={areaKeyword}
+                        onChange={(e) => setAreaKeyword(e.target.value)}
+                        placeholder="例如：北京市、朝阳区"
+                        className="flex-1"
+                        onKeyDown={(e) => e.key === "Enter" && handleAreaQuery()}
+                      />
+                      <Button onClick={handleAreaQuery} disabled={isQueryingArea} size="default">
+                        {isQueryingArea ? <><Loader2 className="h-4 w-4 animate-spin" /> 查询中</> : <><Play className="h-4 w-4" /> 查询</>}
+                      </Button>
+                    </div>
+                  </div>
+                  {areaResults.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      ✅ 已在地图上渲染 {areaResults.length} 个面数据
+                    </p>
+                  )}
+                </div>
+              )}
 
               {mapSource === "osm" && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -758,7 +854,7 @@ export default function Index() {
             </Button>
           ) : (
             <Button size="lg" className="w-full gap-2" disabled={!canStart} onClick={handleConvert}>
-              <Play className="h-5 w-5" /> 开始转换 — {SOURCE_LABELS[mapSource]}（{displayCount} 条）
+              {queryMode === "area" ? <><Map className="h-5 w-5" /> 面域查询模式（请使用上方查询按钮）</> : <><Play className="h-5 w-5" /> 开始转换 — {SOURCE_LABELS[mapSource]}（{displayCount} 条）</>}
             </Button>
           )}
         </div>
@@ -802,7 +898,9 @@ export default function Index() {
                 <Map className="h-4 w-4" /> 地理底图
               </CardTitle>
               <span className="text-xs text-muted-foreground">
-                {mapMarkers.length > 0 ? `${mapMarkers.length} 个坐标点` : "等待地址输入..."}
+                {mapMarkers.length > 0 || mapPolygons.length > 0
+                  ? `${mapMarkers.length > 0 ? `${mapMarkers.length} 个坐标点` : ""}${mapMarkers.length > 0 && mapPolygons.length > 0 ? " · " : ""}${mapPolygons.length > 0 ? `${mapPolygons.length} 个面数据` : ""}`
+                  : "等待地址输入..."}
               </span>
             </div>
           </CardHeader>
@@ -811,6 +909,7 @@ export default function Index() {
               <GeoMap
                 ref={geoMapRef}
                 markers={mapMarkers}
+                polygons={mapPolygons}
                 className="h-full w-full"
                 autoFitDisabled={autoFitDisabled}
                 categoryColors={categoryColorList.length > 0 ? categoryColorList : undefined}

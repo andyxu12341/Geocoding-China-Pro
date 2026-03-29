@@ -5,11 +5,35 @@
 
 export type MapSource = "gaode" | "baidu" | "osm";
 
+export type AreaQueryType =
+  | "building"    // 建筑
+  | "residential" // 住宅区
+  | "park"        // 景区/公园
+  | "commercial"  // 功能区/商业
+  | "administrative"; // 行政区
+
+export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
+  building: "🏢 建筑",
+  residential: "🏘️ 住宅区",
+  park: "🏞️ 景区/公园",
+  commercial: "🏬 功能区/商业",
+  administrative: "🏛️ 行政区",
+};
+
+export const AREA_TYPE_DESCRIPTIONS: Record<AreaQueryType, string> = {
+  building: "查询建筑物轮廓（如单体建筑、大型场馆）",
+  residential: "查询居住用地边界（如住宅小区、居住组团）",
+  park: "查询公园绿地、景区、旅游景点边界",
+  commercial: "查询商业服务业设施用地边界",
+  administrative: "查询行政区划边界（省/市/区/街道）",
+};
+
 export interface GeocodingConfig {
   source: MapSource;
   gaodeKey?: string;
   baiduKey?: string;
   regionFilter?: string;
+  areaQueryType?: AreaQueryType;
 }
 
 export interface GeocodeItem {
@@ -21,6 +45,17 @@ export interface GeocodeItem {
   status: "success" | "failed";
   error?: string;
   category?: string;
+  polygon?: number[][][]; // For area query results: [[[lng, lat], [lng, lat], ...]]
+}
+
+export interface AreaResult {
+  name: string;
+  type: AreaQueryType;
+  osmId: number;
+  osmType: string;
+  tags: Record<string, string>;
+  polygon: number[][][];
+  center?: { lat: number; lng: number };
 }
 
 export interface BatchProgress {
@@ -326,4 +361,110 @@ export async function geocodeBatch(
     }
 
   return results;
+}
+
+// ── Overpass API for area/polygon queries ──
+
+const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+
+const AREA_QUERIES: Record<AreaQueryType, string> = {
+  building: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["building"]["name"](area.searchArea)(if: t["name"] != ""););out body geom;`,
+  residential: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["landuse"="residential"](area.searchArea);relation["landuse"="residential"](area.searchArea););out body geom;`,
+  park: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["leisure"="park"](area.searchArea);way["landuse"="grass"]["name"](area.searchArea);way["natural"="park"](area.searchArea);relation["leisure"="park"](area.searchArea););out body geom;`,
+  commercial: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(way["landuse"="commercial"](area.searchArea);way["landuse"="retail"](area.searchArea);way["office"](area.searchArea););out body geom;`,
+  administrative: `[out:json][timeout:30];area[name~"${''}"]["admin_level"!~""]->.searchArea;(relation["boundary"="administrative"]["name"](area.searchArea);way["boundary"="administrative"](area.searchArea););out body geom;`,
+};
+
+interface OverpassElement {
+  type: "node" | "way" | "relation";
+  id: number;
+  tags?: Record<string, string>;
+  geometry?: Array<{ lat: number; lon: number }>;
+  nodes?: number[];
+  members?: Array<{ type: "node" | "way"; ref: number; role: string }>;
+}
+
+interface OverpassResponse {
+  elements: OverpassElement[];
+}
+
+function buildOverpassQuery(keyword: string, areaType: AreaQueryType): string {
+  // Overpass QL query: search within a named area
+  const escaped = keyword.replace(/"/g, '\\"');
+  const base = AREA_QUERIES[areaType];
+  // Inject keyword as area name constraint
+  const areaConstraint = `[area["name"~"${escaped}"]]->.targetArea;`;
+  const areaTypeFilter = getAreaTypeFilter(areaType);
+
+  return `[out:json][timeout:60];${areaConstraint}${areaTypeFilter}(area.targetArea);out body geom;`;
+}
+
+function getAreaTypeFilter(type: AreaQueryType): string {
+  switch (type) {
+    case "building":
+      return `(way["building"]["name"](area.targetArea););`;
+    case "residential":
+      return `(way["landuse"="residential"](area.targetArea);relation["landuse"="residential"](area.targetArea););`;
+    case "park":
+      return `(way["leisure"="park"](area.targetArea);way["landuse"="grass"]["name"](area.targetArea);way["natural"="park"](area.targetArea);relation["leisure"="park"](area.targetArea);way["tourism"="attraction"](area.targetArea););`;
+    case "commercial":
+      return `(way["landuse"="commercial"](area.targetArea);way["landuse"="retail"](area.targetArea););`;
+    case "administrative":
+      return `(relation["boundary"="administrative"](area.targetArea);way["boundary"="administrative"](area.targetArea););`;
+  }
+}
+
+function parseOverpassGeometry(element: OverpassElement): number[][] {
+  if (!element.geometry) return [];
+  return element.geometry.map(g => [g.lon, g.lat]);
+}
+
+export async function queryOSMArea(
+  keyword: string,
+  areaType: AreaQueryType,
+  signal?: AbortSignal,
+): Promise<AreaResult[]> {
+  const query = buildOverpassQuery(keyword, areaType);
+
+  const res = await fetch(OVERPASS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
+    },
+    body: `data=${encodeURIComponent(query)}`,
+    signal: signal || AbortSignal.timeout(60000),
+  });
+
+  if (!res.ok) throw new Error(`Overpass API 错误: HTTP ${res.status}`);
+  const data = await res.json() as OverpassResponse;
+
+  const results: AreaResult[] = [];
+  for (const el of data.elements) {
+    if (!el.tags?.name) continue;
+    const polygon = parseOverpassGeometry(el);
+    if (polygon.length < 3) continue; // skip degenerate polygons
+
+    const center = elementCenter(polygon);
+    results.push({
+      name: el.tags.name || `${el.tags.landuse || el.tags.leisure || el.tags.building || "未知"}-${el.id}`,
+      type: areaType,
+      osmId: el.id,
+      osmType: el.type,
+      tags: el.tags || {},
+      polygon: [polygon],
+      center,
+    });
+  }
+
+  return results;
+}
+
+function elementCenter(coords: number[][]): { lat: number; lng: number } {
+  if (coords.length === 0) return { lat: 0, lng: 0 };
+  const sum = coords.reduce((acc, c) => [acc[0] + c[0], acc[1] + c[1]], [0, 0]);
+  return {
+    lng: sum[0] / coords.length,
+    lat: sum[1] / coords.length,
+  };
 }
