@@ -553,7 +553,7 @@ function expandBbox(bbox: [string, string, string, string], factor = 0.05): [num
 function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(areaType);
-  return `[out:json][timeout:50];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out body geom;`;
+  return `[out:json][timeout:50];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out body;>;out skel qt;`;
 }
 
 function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): string {
@@ -600,8 +600,12 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): s
       ].join("");
     case "admin":
       return [
-        `relation["boundary"="administrative"]["admin_level"~"6|8|10"](${areaRef});`,
-        `way["boundary"="administrative"]["admin_level"~"6|8|10"](${areaRef});`,
+        `relation["boundary"="administrative"]["admin_level"="6"](${areaRef});`,
+        `relation["boundary"="administrative"]["admin_level"="8"](${areaRef});`,
+        `relation["boundary"="administrative"]["admin_level"="10"](${areaRef});`,
+        `way["boundary"="administrative"]["admin_level"="6"](${areaRef});`,
+        `way["boundary"="administrative"]["admin_level"="8"](${areaRef});`,
+        `way["boundary"="administrative"]["admin_level"="10"](${areaRef});`,
       ].join("");
   }
 }
@@ -609,13 +613,13 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): s
 function buildBboxOverpassQuery(bbox: [number, number, number, number], type: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(type);
-  return `[out:json][timeout:50];(${filter});out body geom;`;
+  return `[out:json][timeout:50];(${filter});out body;>;out skel qt;`;
 }
 
 function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryType): string {
   const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
   const filter = getAreaPolyFilter(type);
-  return `[out:json][timeout:50];(poly:"${polyStr}";${filter});out body geom;`;
+  return `[out:json][timeout:50];(poly:"${polyStr}";${filter});out body;>;out skel qt;`;
 }
 
 function getAreaPolyFilter(type: AreaQueryType): string {
@@ -662,8 +666,12 @@ function getAreaPolyFilter(type: AreaQueryType): string {
       ].join("");
     case "admin":
       return [
-        `relation["boundary"="administrative"]["admin_level"~"6|8|10"];`,
-        `way["boundary"="administrative"]["admin_level"~"6|8|10"];`,
+        `relation["boundary"="administrative"]["admin_level"="6"];`,
+        `relation["boundary"="administrative"]["admin_level"="8"];`,
+        `relation["boundary"="administrative"]["admin_level"="10"];`,
+        `way["boundary"="administrative"]["admin_level"="6"];`,
+        `way["boundary"="administrative"]["admin_level"="8"];`,
+        `way["boundary"="administrative"]["admin_level"="10"];`,
       ].join("");
   }
 }
