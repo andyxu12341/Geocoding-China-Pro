@@ -553,10 +553,10 @@ function expandBbox(bbox: [string, string, string, string], factor = 0.05): [num
 function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(areaType);
-  return `[out:json][timeout:50];(${filter.replace(/\(area\.targetArea\)/g, `(${south},${west},${north},${east})`)});out body geom;`;
+  return `[out:json][timeout:50];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out body geom;`;
 }
 
-function getAreaTypeFilter(type: AreaQueryType, areaRef = "area.targetArea"): string {
+function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): string {
   switch (type) {
     case "all":
       return [
@@ -705,6 +705,7 @@ export async function queryOSMArea(
   let data: OverpassResponse | null = null;
   for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
     const endpoint = OVERPASS_ENDPOINTS[i];
+    console.log(`[Overpass] 节点 ${i + 1}/${OVERPASS_ENDPOINTS.length} — QL:`, query);
     try {
       const res = await fetch(endpoint, {
         method: "POST",
