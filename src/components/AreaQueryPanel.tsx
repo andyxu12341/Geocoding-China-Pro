@@ -63,13 +63,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (mode === "rectangle") {
-      geoMapRef.current?.setDrawMode("rectangle");
-    } else if (mode === "polygon") {
-      geoMapRef.current?.setDrawMode("polygon");
-    } else {
-      geoMapRef.current?.cancelDraw();
-    }
+    geoMapRef.current?.cancelDraw();
   }, [mode, geoMapRef]);
 
   const handleQuery = () => {
