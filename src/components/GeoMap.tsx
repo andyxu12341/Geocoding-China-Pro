@@ -304,14 +304,15 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       if (!map || !drawLayerRef.current) return;
 
       const handleModeChange = () => {
-        console.log("[DrawController] handleModeChange fired, drawModeRef:", drawModeRef.current);
+        const mode = drawModeRef.current;
+        const callbacks = drawCallbacksRef.current;
+        console.log("[DrawController] handleModeChange fired, mode from ref:", mode, "callbacks:", !!callbacks.rectDone || !!callbacks.polyDone);
         if (!drawLayerRef.current) {
           console.warn("[DrawController] drawLayerRef not ready");
           return;
         }
 
         if (activeHandlerRef.current) {
-          console.log("[DrawController] Disabling previous handler");
           try { activeHandlerRef.current.disable(); } catch (e) { console.warn("[DrawController] disable error:", e); }
           activeHandlerRef.current = null;
         }
@@ -319,12 +320,13 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
         drawLayerRef.current.clearLayers();
         map.off(L.Draw.Event.CREATED);
 
-        const mode = drawModeRef.current;
-        const callbacks = drawCallbacksRef.current;
-        console.log("[DrawController] Mode:", mode, "callbacks:", callbacks);
-
         if (mode === "none") {
           console.log("[DrawController] Mode is none, skipping handler creation");
+          return;
+        }
+
+        if (!callbacks.rectDone && !callbacks.polyDone) {
+          console.warn("[DrawController] No callback registered yet! Mode:", mode, "callbacks:", callbacks);
           return;
         }
 
@@ -345,24 +347,20 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
         activeHandlerRef.current = handler;
         handler.enable();
-        console.log("[DrawController] Handler enabled for mode:", mode);
+        console.log("[DrawController] Handler enabled");
 
         map.on(L.Draw.Event.CREATED, (e: L.LeafletEvent) => {
-          console.log("[DrawController] draw:created fired, mode:", mode);
           const layer = (e as L.DrawEvents.Created).layer;
           if (drawLayerRef.current) {
             drawLayerRef.current.addLayer(layer);
             drawLayerRef.current.removeLayer(layer);
           }
 
-          if (mode === "rectangle" && callbacks.rectDone) {
-            console.log("[DrawController] Calling rectDone callback");
-            callbacks.rectDone((layer as L.Rectangle).getBounds());
-          } else if (mode === "polygon" && callbacks.polyDone) {
-            console.log("[DrawController] Calling polyDone callback");
-            callbacks.polyDone((layer as L.Polygon).getLatLngs()[0] as L.LatLng[]);
-          } else {
-            console.warn("[DrawController] No callback for mode:", mode, "callbacks:", callbacks);
+          const cb = drawCallbacksRef.current;
+          if (mode === "rectangle" && cb.rectDone) {
+            cb.rectDone((layer as L.Rectangle).getBounds());
+          } else if (mode === "polygon" && cb.polyDone) {
+            cb.polyDone((layer as L.Polygon).getLatLngs()[0] as L.LatLng[]);
           }
         });
       };
