@@ -30,7 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate, AREA_CATEGORY_LABELS } from "@/utils/geocoding";
-import { exportCSV, exportGeoJSON, exportKML, exportMapPNG, exportPolygonGeoJSON, exportPolygonKML } from "@/utils/exportUtils";
+import { exportCSV, exportGeoJSON, exportKML, exportMapPNG, exportPolygonGeoJSON, exportPolygonKML, exportPolygonCSV } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
 
 const DEMO_ADDRESSES = "北京故宫\n上海东方明珠\n广州塔\n深圳平安金融中心\n成都大熊猫繁育研究基地";
@@ -903,6 +903,7 @@ export default function Index() {
                           </>
                         ) : (
                           <>
+                            <DropdownMenuItem onClick={() => exportPolygonCSV(areaResults)}>📄 CSV</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => exportPolygonGeoJSON(areaResults)}>🗺️ GeoJSON</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => exportPolygonKML(areaResults)}>🌍 Google Earth (KML)</DropdownMenuItem>
                           </>

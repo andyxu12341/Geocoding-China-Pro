@@ -97,6 +97,23 @@ export async function exportMapPNG(mapEl: HTMLElement): Promise<void> {
   }, "image/png");
 }
 
+export function exportPolygonCSV(results: AreaResult[]) {
+  const headers = ["名称", "OSM ID", "OSM类型", "类别", "中心纬度", "中心经度", "OSM标签"];
+  const rows = results.map(r => [
+    r.name || "",
+    String(r.osmId),
+    r.osmType,
+    r.category ?? "other",
+    r.center?.lat != null ? String(r.center.lat) : "",
+    r.center?.lng != null ? String(r.center.lng) : "",
+    Object.entries(r.tags ?? {}).map(([k, v]) => `${k}=${v}`).join("; "),
+  ]);
+  const body = [headers, ...rows]
+    .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  downloadBlob("\ufeff" + body, `Polygons_${ts()}.csv`, "text/csv;charset=utf-8;");
+}
+
 export function exportPolygonGeoJSON(results: AreaResult[]) {
   const features = results
     .filter(r => r.polygon && r.polygon.length > 0)
