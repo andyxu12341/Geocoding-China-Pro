@@ -1,9 +1,10 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.chinatmsproviders";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
+import { wgs84togcj02 } from "@/utils/coordTransform";
 import { LANDUSE_STANDARD_MAP } from "@/utils/geocoding";
 
 type DrawMode = "none" | "rectangle" | "polygon";
@@ -70,6 +71,8 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   const rendererRef = useRef<L.Canvas | null>(null);
   const drawLayerRef = useRef<L.FeatureGroup | null>(null);
   const legendRef = useRef<L.Control | null>(null);
+  const baseLayerRef = useRef<L.Layer | null>(null);
+  const [usesGaode, setUsesGaode] = useState(true);
 
   const drawModeRef = useRef<DrawMode>("none");
   const drawCallbacksRef = useRef<{
@@ -250,21 +253,26 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tdtSatLayer = (L.tileLayer as any).chinaProvider("TianDiTu.Satellite.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
 
-    gaodeLayer.addTo(map);
+    const baseLayers = {
+      "🏠 高德地图": gaodeLayer,
+      "🗺️ OpenStreetMap": osmLayer,
+      "🛰️ 卫星图(Esri)": satLayer,
+      "📡 高德卫星": gaodeSatLayer,
+      "🌐 天地图": tdtLayer,
+      "🛰️ 天地图卫星": tdtSatLayer,
+      "🌙 暗色地图": darkLayer,
+    };
 
-    L.control.layers(
-      {
-        "🏠 高德地图": gaodeLayer,
-        "🗺️ OpenStreetMap": osmLayer,
-        "🛰️ 卫星图(Esri)": satLayer,
-        "📡 高德卫星": gaodeSatLayer,
-        "🌐 天地图": tdtLayer,
-        "🛰️ 天地图卫星": tdtSatLayer,
-        "🌙 暗色地图": darkLayer,
-      },
-      {},
-      { position: "topright", collapsed: true }
-    ).addTo(map);
+    gaodeLayer.addTo(map);
+    baseLayerRef.current = gaodeLayer;
+
+    const layersControl = L.control.layers(baseLayers, {}, { position: "topright", collapsed: true }).addTo(map);
+
+    map.on("baselayerchange", (e: L.LayersControlEvent) => {
+      const isGaode = e.name === "🏠 高德地图" || e.name === "📡 高德卫星";
+      baseLayerRef.current = e.layer;
+      setUsesGaode(isGaode);
+    });
 
     L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
 
@@ -316,9 +324,13 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     const latLngs: L.LatLngTuple[] = [];
 
+    const toDisplayCoord = (lng: number, lat: number): [number, number] =>
+      usesGaode ? (() => { const [wgsLng, wgsLat] = wgs84togcj02(lng, lat); return [wgsLat, wgsLng] as [number, number] })() : [lat, lng];
+
     markers.forEach(m => {
       const fillColor = (m.category && colorMap.get(m.category)) || DEFAULT_MARKER_COLOR;
-      L.circleMarker([m.lat, m.lng], {
+      const [displayLat, displayLng] = toDisplayCoord(m.lng, m.lat);
+      L.circleMarker([displayLat, displayLng], {
         renderer,
         radius: 5,
         fillColor,
@@ -336,14 +348,16 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
         .on("mouseout", function (this: L.CircleMarker) { this.closePopup(); })
         .addTo(mLayer);
 
-      latLngs.push([m.lat, m.lng]);
+      latLngs.push([displayLat, displayLng]);
     });
 
     const seenCategories = new Map<string, string>();
     polygons?.forEach((poly) => {
       const color = poly.color || "#E0E0E0";
       poly.rings.forEach(ring => {
-        const latLngRing: L.LatLngExpression[] = ring.map(c => [c[1], c[0]] as L.LatLngTuple);
+        const latLngRing: L.LatLngExpression[] = ring
+          .map(c => toDisplayCoord(c[0], c[1]))
+          .map(([lat, lng]) => [lat, lng] as L.LatLngTuple);
         if (latLngRing.length < 3) return;
 
         const tags = poly.tags || {};
@@ -370,7 +384,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
           )
           .addTo(pLayer);
 
-        latLngs.push(latLngRing[0] as L.LatLngTuple);
+        latLngs.push(latLngRing[0]);
       });
       seenCategories.set(poly.categoryName, color);
     });
@@ -408,7 +422,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markers, autoFitDisabled, categoryColors, polygons]);
+  }, [markers, autoFitDisabled, categoryColors, polygons, usesGaode]);
 
   return (
     <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />
