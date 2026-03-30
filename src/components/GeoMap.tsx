@@ -54,7 +54,6 @@ const SAT_ATTR = "&copy; Esri &middot; Maxar &middot; Earthstar Geographics";
 const DARK_ATTR = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
 const TIANDITU_ATTR = '&copy; <a href="https://www.tianditu.gov.cn">天地图</a>';
 const GAODE_ATTR = '&copy; <a href="https://www.autonavi.com">高德地图</a>';
-const GEOQ_ATTR = '&copy; <a href="https://www.geoq.cn">智图科技</a>';
 
 const DEFAULT_MARKER_COLOR = "#6366f1";
 
@@ -246,9 +245,6 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gaodeSatLayer = (L.tileLayer as any).chinaProvider("GaoDe.Satellite.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const geoqLayer = (L.tileLayer as any).chinaProvider("Geoq.Normal.Map", { attribution: GEOQ_ATTR, maxZoom: 18 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const geoqBlueLayer = (L.tileLayer as any).chinaProvider("Geoq.Normal.PurplishBlue", { attribution: GEOQ_ATTR, maxZoom: 18 });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tdtLayer = (L.tileLayer as any).chinaProvider("TianDiTu.Normal.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -262,8 +258,6 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
         "🗺️ OpenStreetMap": osmLayer,
         "🛰️ 卫星图(Esri)": satLayer,
         "📡 高德卫星": gaodeSatLayer,
-        "🗄️ 智图在线": geoqLayer,
-        "🎨 智图藏蓝": geoqBlueLayer,
         "🌐 天地图": tdtLayer,
         "🛰️ 天地图卫星": tdtSatLayer,
         "🌙 暗色地图": darkLayer,

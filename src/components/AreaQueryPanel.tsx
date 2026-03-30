@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Search, Square, Pentagon, Loader2, Globe, Key,
+  MapPin, Search, Square, Pentagon, Loader2, Globe, Key, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import { useOverpassQuery, type SpatialResult } from "@/hooks/useOverpassQuery";
 import {
   type AreaQueryType,
   type AreaQueryMode,
-  type MapSource,
   AREA_TYPE_LABELS,
 } from "@/utils/geocoding";
 import type { GeoMapHandle } from "@/components/GeoMap";
@@ -22,8 +21,6 @@ import type { GeoMapHandle } from "@/components/GeoMap";
 interface AreaQueryPanelProps {
   geoMapRef: React.RefObject<GeoMapHandle>;
   onResults: (results: SpatialResult[]) => void;
-  gaodeKey?: string;
-  baiduKey?: string;
 }
 
 type POISource = "osm" | "gaode" | "baidu";
@@ -40,7 +37,7 @@ const POI_TYPES: AreaQueryType[] = [
   "poi_shopping", "poi_education", "poi_sport", "poi_all",
 ];
 
-export function AreaQueryPanel({ geoMapRef, onResults, gaodeKey, baiduKey }: AreaQueryPanelProps) {
+export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { fetchSpatial, isLoading, error } = useOverpassQuery();
@@ -49,11 +46,20 @@ export function AreaQueryPanel({ geoMapRef, onResults, gaodeKey, baiduKey }: Are
   const [keyword, setKeyword] = useState("");
   const [areaType, setAreaType] = useState<AreaQueryType>("building");
   const [poiSource, setPoiSource] = useState<POISource>("osm");
+  const [gaodeKey, setGaodeKey] = useState(() => localStorage.getItem("gc_gaode_key") || "");
+  const [baiduKey, setBaiduKey] = useState(() => localStorage.getItem("gc_baidu_key") || "");
+  const [showApiConfig, setShowApiConfig] = useState(false);
+
+  useEffect(() => {
+    const needsExpand = (poiSource === "gaode" && !gaodeKey.trim()) ||
+                        (poiSource === "baidu" && !baiduKey.trim());
+    if (needsExpand) setShowApiConfig(true);
+  }, [poiSource]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isPolygonType = !areaType.startsWith("poi_");
-  const apiKey = poiSource === "gaode" ? gaodeKey : poiSource === "baidu" ? baiduKey : undefined;
+  const apiKey = poiSource === "gaode" ? gaodeKey.trim() : poiSource === "baidu" ? baiduKey.trim() : undefined;
 
   const handleQuery = () => {
     if (debounceRef.current) return;
@@ -180,12 +186,71 @@ export function AreaQueryPanel({ geoMapRef, onResults, gaodeKey, baiduKey }: Are
                 </button>
               ))}
             </div>
-            {poiSource === "gaode" && !gaodeKey?.trim() && (
+            {poiSource === "gaode" && !gaodeKey.trim() && (
               <p className="text-xs text-amber-600 mt-1">{t("areaQuery.gaodeKeyRequired")}</p>
             )}
-            {poiSource === "baidu" && !baiduKey?.trim() && (
+            {poiSource === "baidu" && !baiduKey.trim() && (
               <p className="text-xs text-amber-600 mt-1">{t("areaQuery.baiduKeyRequired")}</p>
             )}
+          </div>
+        )}
+
+        {!isPolygonType && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+            <button
+              onClick={() => setShowApiConfig(v => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900 rounded-lg transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <Key className="h-3.5 w-3.5" />
+                {t("areaQuery.apiConfigTitle")}
+                {(gaodeKey.trim() || baiduKey.trim()) && (
+                  <span className="text-emerald-600 font-medium">✓ {t("areaQuery.configured")}</span>
+                )}
+              </span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showApiConfig ? "rotate-180" : ""}`} />
+            </button>
+            <AnimatePresence>
+              {showApiConfig && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-3 pb-3 space-y-2">
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">{t("areaQuery.gaodeKey")}</label>
+                      <Input
+                        type="password"
+                        value={gaodeKey}
+                        onChange={e => {
+                          setGaodeKey(e.target.value);
+                          localStorage.setItem("gc_gaode_key", e.target.value);
+                        }}
+                        placeholder={t("areaQuery.gaodeKeyPlaceholder")}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">{t("areaQuery.baiduKey")}</label>
+                      <Input
+                        type="password"
+                        value={baiduKey}
+                        onChange={e => {
+                          setBaiduKey(e.target.value);
+                          localStorage.setItem("gc_baidu_key", e.target.value);
+                        }}
+                        placeholder={t("areaQuery.baiduKeyPlaceholder")}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t("areaQuery.keyConfigHint")}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 

@@ -1,7 +1,7 @@
 {
   "app": {
-    "title": "空间数据工作站",
-    "subtitle": "纯前端 · 零后端 · 高德 / 百度 / OpenStreetMap 三源批量地理编码 · GeoJSON / KML / PNG 导出"
+    "title": "Geospatial Studio",
+    "subtitle": "纯前端 · 高德 / 百度 / OSM 三源 · 坐标转换 + 面域 / POI 查询 · GeoJSON / KML / CSV 导出"
   },
   "settings": {
     "title": "API 设置",
@@ -56,10 +56,11 @@
     "title": "地理底图",
     "markers": "{{count}} 个坐标点",
     "polygons": "{{count}} 个面数据",
-    "waiting": "等待地址输入..."
+    "pois": "{{count}} 个 POI",
+    "waiting": "等待数据输入..."
   },
   "results": {
-    "title": "转换结果",
+    "title": "查询结果",
     "export": "导出",
     "exportCSV": "导出 CSV",
     "exportGeoJSON": "导出 GeoJSON",
@@ -132,7 +133,7 @@
     "cancel": "取消"
   },
   "areaQuery": {
-    "title": "面域提取",
+    "title": "空间数据查询",
     "desc": "从 OpenStreetMap 查询建筑物/地块轮廓面数据",
     "queryType": "提取类型",
     "all": "所有面域",
@@ -158,11 +159,18 @@
     "groupPOI": "POI 点位",
     "dataSource": "数据源",
     "gaodeKeyRequired": "高德 POI 需要配置高德 Web 服务 Key",
-    "baiduKeyRequired": "百度 POI 需要配置百度浏览器端 AK"
+    "baiduKeyRequired": "百度 POI 需要配置百度浏览器端 AK",
+    "apiConfigTitle": "API 配置",
+    "configured": "已配置",
+    "gaodeKey": "高德 Web 服务 Key",
+    "baiduKey": "百度浏览器端 AK",
+    "gaodeKeyPlaceholder": "输入高德 Web 服务 API Key...",
+    "baiduKeyPlaceholder": "输入百度 Browser 端 AK...",
+    "keyConfigHint": "配置后自动保存，同左侧 Key 共用"
   },
   "tabs": {
     "geocoding": "坐标转换",
-    "polygon": "面域提取"
+    "polygon": "空间查询"
   },
   "theme": {
     "light": "切换亮色模式",

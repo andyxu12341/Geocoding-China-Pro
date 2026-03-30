@@ -1,7 +1,7 @@
 {
   "app": {
-    "title": "Geocoding Workstation",
-    "subtitle": "Pure frontend · Zero backend · Amap / Baidu / OSM batch geocoding · GeoJSON / KML / PNG export"
+    "title": "Geospatial Studio",
+    "subtitle": "Amap / Baidu / OSM · Geocoding + Polygon / POI Query · GeoJSON / KML / CSV Export"
   },
   "settings": {
     "title": "API Settings",
@@ -56,6 +56,7 @@
     "title": "Map",
     "markers": "{{count}} markers",
     "polygons": "{{count}} polygons",
+    "pois": "{{count}} POIs",
     "waiting": "Waiting for input..."
   },
   "results": {
@@ -132,7 +133,7 @@
     "cancel": "Cancel"
   },
   "areaQuery": {
-    "title": "Polygon Extraction",
+    "title": "Spatial Data Query",
     "desc": "Query building/landuse/administrative polygons from OpenStreetMap",
     "queryType": "Extraction Type",
     "all": "All Regions",
@@ -158,11 +159,18 @@
     "groupPOI": "POI Point",
     "dataSource": "Data Source",
     "gaodeKeyRequired": "Gaode POI requires Gaode Web Service API Key",
-    "baiduKeyRequired": "Baidu POI requires Baidu Browser AK"
+    "baiduKeyRequired": "Baidu POI requires Baidu Browser AK",
+    "apiConfigTitle": "API Configuration",
+    "configured": "Configured",
+    "gaodeKey": "Gaode Web Service Key",
+    "baiduKey": "Baidu Browser AK",
+    "gaodeKeyPlaceholder": "Enter Gaode Web Service API Key...",
+    "baiduKeyPlaceholder": "Enter Baidu Browser AK...",
+    "keyConfigHint": "Saved automatically, shared with left panel"
   },
   "tabs": {
     "geocoding": "Geocoding",
-    "polygon": "Polygon Extraction"
+    "polygon": "Spatial Query"
   },
   "theme": {
     "light": "Switch to light mode",

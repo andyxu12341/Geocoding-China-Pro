@@ -36,7 +36,7 @@
 - **统一导出 / Unified Export** — CSV / GeoJSON / KML（POI 点位与面域数据可分别导出或合并导出）
 
 ### 地图可视化 | Map Visualization
-- **9 种底图 / 9 Tile Layers** — 高德、OpenStreetMap、Esri 卫星、高德卫星、智图、天地图（街景/卫星）、CARTO 暗色
+- **7 种底图 / 7 Tile Layers** — 高德、OpenStreetMap、Esri 卫星、高德卫星、天地图（街景/卫星）、CARTO 暗色
 - **分类图例 / Category Legend** — 按实际渲染颜色聚合显示，无冗余
 - **自动聚焦 / Auto-fit** — 查询结果自动缩放至所有坐标范围
 - **实时进度条 / Real-time Progress** — 显示处理进度、成功/失败计数
