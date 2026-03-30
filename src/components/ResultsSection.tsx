@@ -13,6 +13,7 @@ import {
   exportCSV, exportGeoJSON, exportGeocodingKML,
   exportPolygonCSV, exportPolygonGeoJSON, exportPolygonKML,
   exportCombinedCSV, exportCombinedGeoJSON, exportCombinedKML,
+  exportPOIGeoJSON, exportPOICSV, exportPOIKML,
 } from "@/utils/exportUtils";
 import type { SpatialResult } from "@/hooks/useOverpassQuery";
 
@@ -56,32 +57,17 @@ export function ResultsSection({
 
   const handleExportPOIGeoJSON = () => {
     if (poiExportDisabled) return;
-    exportGeoJSON(
-      poiResults.map(p => ({
-        address: p.name,
-        lat: String(p.lat),
-        lng: String(p.lng),
-        formattedAddress: p.address,
-        source: p.source,
-        category: p.categoryName,
-        status: "success" as const,
-      }))
-    );
+    exportPOIGeoJSON(poiResults);
   };
 
   const handleExportPOIKML = () => {
     if (poiExportDisabled) return;
-    exportGeocodingKML(
-      poiResults.map(p => ({
-        address: p.name,
-        lat: String(p.lat),
-        lng: String(p.lng),
-        formattedAddress: p.address,
-        source: p.source,
-        category: p.categoryName,
-        status: "success" as const,
-      }))
-    );
+    exportPOIKML(poiResults);
+  };
+
+  const handleExportPOICSV = () => {
+    if (poiExportDisabled) return;
+    exportPOICSV(poiResults);
   };
 
   return (
@@ -119,20 +105,7 @@ export function ResultsSection({
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">📍 POI 点位</div>
                             <DropdownMenuItem onClick={handleExportPOIGeoJSON} disabled={poiExportDisabled}>🗺️ GeoJSON</DropdownMenuItem>
                             <DropdownMenuItem onClick={handleExportPOIKML} disabled={poiExportDisabled}>🌍 KML</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              if (poiExportDisabled) return;
-                              exportCSV(
-                                poiResults.map(p => ({
-                                  address: p.name,
-                                  lat: String(p.lat),
-                                  lng: String(p.lng),
-                                  formattedAddress: p.address,
-                                  source: p.source,
-                                  category: p.categoryName,
-                                  status: "success" as const,
-                                }))
-                              );
-                            }} disabled={poiExportDisabled}>📄 CSV</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportPOICSV} disabled={poiExportDisabled}>📄 CSV</DropdownMenuItem>
                           </>
                         )}
                         {polygonResults.length > 0 && (
@@ -148,48 +121,42 @@ export function ResultsSection({
                           <>
                             <DropdownMenuSeparator />
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">📦 统一导出</div>
-                            <DropdownMenuItem onClick={() => {
-                              exportCombinedCSV(
-                                poiResults.map(p => ({
-                                  address: p.name,
-                                  lat: String(p.lat),
-                                  lng: String(p.lng),
-                                  formattedAddress: p.address,
-                                  source: p.source,
-                                  category: p.categoryName,
-                                  status: "success" as const,
-                                })),
-                                polygonResults
-                              );
-                            }}>📄 Combined CSV</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              exportCombinedGeoJSON(
-                                poiResults.map(p => ({
-                                  address: p.name,
-                                  lat: String(p.lat),
-                                  lng: String(p.lng),
-                                  formattedAddress: p.address,
-                                  source: p.source,
-                                  category: p.categoryName,
-                                  status: "success" as const,
-                                })),
-                                polygonResults
-                              );
-                            }}>🗺️ Combined GeoJSON</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              exportCombinedKML(
-                                poiResults.map(p => ({
-                                  address: p.name,
-                                  lat: String(p.lat),
-                                  lng: String(p.lng),
-                                  formattedAddress: p.address,
-                                  source: p.source,
-                                  category: p.categoryName,
-                                  status: "success" as const,
-                                })),
-                                polygonResults
-                              );
-                            }}>🌍 Combined KML</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportCombinedCSV(
+                              poiResults.map(p => ({
+                                address: p.name,
+                                lat: String(p.lat),
+                                lng: String(p.lng),
+                                formattedAddress: p.address,
+                                source: p.source,
+                                category: p.categoryName,
+                                status: "success" as const,
+                              })),
+                              polygonResults
+                            )}>📄 Combined CSV</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportCombinedGeoJSON(
+                              poiResults.map(p => ({
+                                address: p.name,
+                                lat: String(p.lat),
+                                lng: String(p.lng),
+                                formattedAddress: p.address,
+                                source: p.source,
+                                category: p.categoryName,
+                                status: "success" as const,
+                              })),
+                              polygonResults
+                            )}>🗺️ Combined GeoJSON</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportCombinedKML(
+                              poiResults.map(p => ({
+                                address: p.name,
+                                lat: String(p.lat),
+                                lng: String(p.lng),
+                                formattedAddress: p.address,
+                                source: p.source,
+                                category: p.categoryName,
+                                status: "success" as const,
+                              })),
+                              polygonResults
+                            )}>🌍 Combined KML</DropdownMenuItem>
                           </>
                         )}
                       </>

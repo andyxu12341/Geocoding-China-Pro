@@ -1,4 +1,4 @@
-import type { GeocodeItem, AreaResult } from "./geocoding";
+import type { GeocodeItem, AreaResult, POIResult } from "./geocoding";
 
 function downloadBlob(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -41,12 +41,14 @@ export function exportCSV(results: GeocodeItem[]) {
 }
 
 export function exportPolygonCSV(results: AreaResult[]) {
-  const headers = ["名称", "OSM ID", "OSM类型", "类别", "中心纬度", "中心经度", "OSM标签"];
+  const headers = ["名称", "OSM ID", "OSM类型", "类型", "颜色码", "数据源", "中心纬度", "中心经度", "OSM标签"];
   const rows = results.map(r => [
-    r.name || "",
+    r.name || "未命名",
     String(r.osmId),
     r.osmType,
     r.categoryName ?? "",
+    r.color,
+    "OSM",
     r.center?.lat != null ? String(r.center.lat) : "",
     r.center?.lng != null ? String(r.center.lng) : "",
     Object.entries(r.tags ?? {}).map(([k, v]) => `${k}=${v}`).join("; "),
@@ -58,28 +60,30 @@ export function exportPolygonCSV(results: AreaResult[]) {
 }
 
 export function exportCombinedCSV(geoResults: GeocodeItem[], polyResults: AreaResult[]) {
-  const headers = ["类型", "名称/地址", "经度", "纬度", "数据源/分类", "详情"];
+  const headers = ["类型", "名称", "经度", "纬度", "类型", "颜色码", "数据源"];
   const rows: string[][] = [];
 
   for (const r of geoResults) {
     rows.push([
       "POI",
-      r.address,
+      r.address || "未命名",
       r.lng ?? "",
       r.lat ?? "",
-      r.source ?? "",
-      r.formattedAddress ?? "",
+      r.category ?? "",
+      "",
+      (r.source ?? "OSM").toUpperCase(),
     ]);
   }
 
   for (const r of polyResults) {
     rows.push([
       "面域",
-      r.name || "",
+      r.name || "未命名",
       r.center?.lng != null ? String(r.center.lng) : "",
       r.center?.lat != null ? String(r.center.lat) : "",
       r.categoryName ?? "",
-      Object.entries(r.tags ?? {}).map(([k, v]) => `${k}=${v}`).join("; "),
+      r.color,
+      "OSM",
     ]);
   }
 
@@ -87,6 +91,69 @@ export function exportCombinedCSV(geoResults: GeocodeItem[], polyResults: AreaRe
     .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
     .join("\n");
   downloadBlob("\ufeff" + body, `Combined_${ts()}.csv`, "text/csv;charset=utf-8;");
+}
+
+// ── POI Exports ───────────────────────────────────────────────────────────────
+
+export function exportPOIGeoJSON(results: POIResult[]) {
+  const features = results
+    .filter(r => r.lat && r.lng)
+    .map(r => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "Point" as const,
+        coordinates: [r.lng, r.lat] as [number, number],
+      },
+      properties: {
+        name: r.name || "未命名",
+        category: r.categoryName,
+        color: r.color,
+        source: r.source.toUpperCase(),
+        address: r.address ?? null,
+      },
+    }));
+
+  const geojson = { type: "FeatureCollection" as const, features };
+  downloadBlob(JSON.stringify(geojson, null, 2), `POI_${ts()}.geojson`, "application/geo+json");
+}
+
+export function exportPOICSV(results: POIResult[]) {
+  const headers = ["名称", "经度", "纬度", "类型", "颜色码", "数据源", "地址"];
+  const rows = results.map(r => [
+    r.name || "未命名",
+    String(r.lng),
+    String(r.lat),
+    r.categoryName,
+    r.color,
+    r.source.toUpperCase(),
+    r.address ?? "",
+  ]);
+  const body = [headers, ...rows]
+    .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  downloadBlob("\ufeff" + body, `POI_${ts()}.csv`, "text/csv;charset=utf-8;");
+}
+
+export function exportPOIKML(results: POIResult[]) {
+  const placemarks = results
+    .filter(r => r.lat && r.lng)
+    .map(r =>
+      `  <Placemark>
+    <name>${escapeXml(r.name || "未命名")}</name>
+    <description>${escapeXml(`${r.categoryName} | ${r.source.toUpperCase()}${r.address ? ` | ${r.address}` : ""}`)}</description>
+    <Point><coordinates>${r.lng},${r.lat},0</coordinates></Point>
+  </Placemark>`
+    )
+    .join("\n");
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>POI 数据 ${ts()}</name>
+${placemarks}
+</Document>
+</kml>`;
+  downloadBlob(kml, `POI_${ts()}.kml`, "application/vnd.google-earth.kml+xml");
 }
 
 // ── GeoJSON ─────────────────────────────────────────────────────────────────
@@ -126,10 +193,12 @@ export function exportPolygonGeoJSON(results: AreaResult[]) {
         coordinates: r.polygon,
       },
       properties: {
-        name: r.name,
-        osm_id: r.osmId,
-        osm_type: r.osmType,
+        name: r.name || "未命名",
         category: r.categoryName ?? "",
+        color: r.color,
+        source: "OSM",
+        osm_id: String(r.osmId),
+        osm_type: r.osmType,
         tags: r.tags ?? {},
       },
     }));
@@ -159,9 +228,9 @@ export function exportCombinedGeoJSON(geoResults: GeocodeItem[], polyResults: Ar
         type: "Feature",
         geometry: { type: "Point", coordinates: [parseFloat(r.lng), parseFloat(r.lat)] },
         properties: {
-          name: r.address,
+          name: r.address || "未命名",
           formattedAddress: r.formattedAddress ?? null,
-          source: r.source ?? null,
+          source: (r.source ?? "OSM").toUpperCase(),
           category: r.category ?? null,
           recordType: "POI",
         },
@@ -175,10 +244,12 @@ export function exportCombinedGeoJSON(geoResults: GeocodeItem[], polyResults: Ar
         type: "Feature",
         geometry: { type: "Polygon", coordinates: r.polygon },
         properties: {
-          name: r.name,
-          osm_id: r.osmId,
-          osm_type: r.osmType,
+          name: r.name || "未命名",
           category: r.categoryName ?? "",
+          color: r.color,
+          source: "OSM",
+          osm_id: String(r.osmId),
+          osm_type: r.osmType,
           tags: r.tags ?? {},
           recordType: "Polygon",
         },

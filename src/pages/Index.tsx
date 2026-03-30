@@ -8,6 +8,7 @@ import {
 import { GeocodingPanel } from "@/components/GeocodingPanel";
 import { AreaQueryPanel } from "@/components/AreaQueryPanel";
 import { ApiSettingsCard } from "@/components/ApiSettingsCard";
+import { HelpDialog } from "@/components/HelpDialog";
 import { RegionFilterCard } from "@/components/RegionFilterCard";
 import { ResultsSection } from "@/components/ResultsSection";
 import { Button } from "@/components/ui/button";
@@ -282,19 +283,26 @@ export default function Index() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center relative">
-          <button
-            onClick={toggleDarkMode}
-            className="absolute right-0 top-0 rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title={darkMode ? t("theme.light") : t("theme.dark")}
-          >
-            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
-          <button
-            onClick={() => i18n.changeLanguage(i18n.language === "zh" ? "en" : "zh")}
-            className="absolute right-12 top-0 rounded-full px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground border border-transparent hover:border-border"
-          >
-            {i18n.language === "zh" ? "EN" : "中文"}
-          </button>
+          <div className="absolute right-0 top-0 flex items-center gap-1">
+            <HelpDialog
+              mapSource={mapSource}
+              gaodeKeyConfigured={!!gaodeKey.trim()}
+              baiduKeyConfigured={!!baiduKey.trim()}
+            />
+            <button
+              onClick={toggleDarkMode}
+              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title={darkMode ? t("theme.light") : t("theme.dark")}
+            >
+              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+            <button
+              onClick={() => i18n.changeLanguage(i18n.language === "zh" ? "en" : "zh")}
+              className="rounded-full px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground border border-transparent hover:border-border"
+            >
+              {i18n.language === "zh" ? "EN" : "中文"}
+            </button>
+          </div>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
             <MapPin className="h-8 w-8 text-primary" />
           </div>
