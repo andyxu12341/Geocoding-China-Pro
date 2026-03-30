@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Download, CheckCircle2, XCircle, Loader2,
-  Map, StopCircle, Copy, Sun, Moon, History, Trash2, RotateCcw, Clock,
+  Map, Copy, Sun, Moon, Trash2, RotateCcw, Clock,
 } from "lucide-react";
 import { GeocodingPanel } from "@/components/GeocodingPanel";
 import { AreaQueryPanel } from "@/components/AreaQueryPanel";
+import { ApiSettingsCard } from "@/components/ApiSettingsCard";
+import { RegionFilterCard } from "@/components/RegionFilterCard";
 import { ResultsSection } from "@/components/ResultsSection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,9 +75,11 @@ export default function Index() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const geoMapRef = useRef<GeoMapHandle>(null);
 
-  const [mapSource, setMapSource] = useState<MapSource>("osm");
-  const [gaodeKey, setGaodeKey] = useState("");
-  const [baiduKey, setBaiduKey] = useState("");
+  const [mapSource, setMapSource] = useState<MapSource>(() =>
+    (localStorage.getItem("gc_map_source") as MapSource) || "osm"
+  );
+  const [gaodeKey, setGaodeKey] = useState(() => localStorage.getItem("gc_gaode_key") || "");
+  const [baiduKey, setBaiduKey] = useState(() => localStorage.getItem("gc_baidu_key") || "");
   const [showGaode, setShowGaode] = useState(false);
   const [showBaidu, setShowBaidu] = useState(false);
   const [regionFilter, setRegionFilter] = useState("");
@@ -178,6 +182,10 @@ export default function Index() {
     setUserOverride(true);
     setDarkMode(prev => !prev);
   };
+
+  useEffect(() => { localStorage.setItem("gc_map_source", mapSource); }, [mapSource]);
+  useEffect(() => { localStorage.setItem("gc_gaode_key", gaodeKey); }, [gaodeKey]);
+  useEffect(() => { localStorage.setItem("gc_baidu_key", baiduKey); }, [baiduKey]);
 
   useEffect(() => {
     const map = geoMapRef.current?.getMap();
@@ -308,29 +316,49 @@ export default function Index() {
           {/* Main workspace */}
           <div className="flex flex-col md:flex-row gap-4 mt-4">
             {/* Left: control panel */}
-            <div className="w-full md:w-[400px] shrink-0 space-y-4 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 120px)" }}>
+            <div className="w-full md:w-[400px] shrink-0 space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 120px)" }}>
+
+              {/* Fixed: API Settings + Region Filter — always visible */}
+              <ApiSettingsCard
+                mapSource={mapSource}
+                onMapSourceChange={setMapSource}
+                gaodeKey={gaodeKey}
+                onGaodeKeyChange={setGaodeKey}
+                baiduKey={baiduKey}
+                onBaiduKeyChange={setBaiduKey}
+                showGaode={showGaode}
+                onShowGaodeChange={setShowGaode}
+                showBaidu={showBaidu}
+                onShowBaiduChange={setShowBaidu}
+              />
+              <RegionFilterCard
+                mapSource={mapSource}
+                regionFilter={regionFilter}
+                onRegionFilterChange={setRegionFilter}
+              />
 
               {/* Tab A: Point Geocoding */}
               <TabsContent value="geocoding" className="mt-0">
-                <GeocodingPanel
-                  mapSource={mapSource}
-                  onMapSourceChange={setMapSource}
-                  gaodeKey={gaodeKey}
-                  onGaodeKeyChange={setGaodeKey}
-                  baiduKey={baiduKey}
-                  onBaiduKeyChange={setBaiduKey}
-                  showGaode={showGaode}
-                  onShowGaodeChange={setShowGaode}
-                  showBaidu={showBaidu}
-                  onShowBaiduChange={setShowBaidu}
-                  regionFilter={regionFilter}
-                  onRegionFilterChange={setRegionFilter}
-                  onResults={setResults}
-                  onProcessingChange={setIsProcessing}
-                />
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4" /> {t("tabs.geocoding")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <GeocodingPanel
+                      mapSource={mapSource}
+                      gaodeKey={gaodeKey}
+                      baiduKey={baiduKey}
+                      regionFilter={regionFilter}
+                      onResults={setResults}
+                      onProcessingChange={setIsProcessing}
+                    />
+                  </CardContent>
+                </Card>
               </TabsContent>
 
-              {/* Tab B: Polygon Extraction */}
+              {/* Tab B: Spatial Query */}
               <TabsContent value="polygon" className="mt-0">
                 <motion.div
                   key="tab-polygon"

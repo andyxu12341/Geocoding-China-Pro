@@ -4,35 +4,27 @@ import { motion } from "framer-motion";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {
-  MapPin, Key, Eye, EyeOff, UploadCloud, FileText,
-  Play, StopCircle, Settings, History, Map,
+  MapPin, UploadCloud, FileText,
+  Play, Map,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useGeocoding } from "@/hooks/useGeocoding";
 import { cn } from "@/lib/utils";
-import { type MapSource, type GeocodingConfig, type GeocodeItem, type GeocodeCandidate } from "@/utils/geocoding";
+import { type MapSource, type GeocodingConfig } from "@/utils/geocoding";
 
 export interface GeocodingPanelProps {
   mapSource: MapSource;
-  onMapSourceChange: (v: MapSource) => void;
   gaodeKey: string;
-  onGaodeKeyChange: (v: string) => void;
   baiduKey: string;
-  onBaiduKeyChange: (v: string) => void;
-  showGaode: boolean;
-  onShowGaodeChange: (v: boolean) => void;
-  showBaidu: boolean;
-  onShowBaiduChange: (v: boolean) => void;
   regionFilter: string;
-  onRegionFilterChange: (v: string) => void;
-  onResults: (results: GeocodeItem[]) => void;
+  onResults: (results: Parameters<typeof useGeocoding>[0]["results"]) => void;
   onProcessingChange: (isProcessing: boolean) => void;
 }
 
@@ -106,12 +98,7 @@ async function parseUploadFile(file: File): Promise<{ headers: string[]; rows: R
 }
 
 export function GeocodingPanel({
-  mapSource, onMapSourceChange,
-  gaodeKey, onGaodeKeyChange,
-  baiduKey, onBaiduKeyChange,
-  showGaode, onShowGaodeChange,
-  showBaidu, onShowBaiduChange,
-  regionFilter, onRegionFilterChange,
+  mapSource, gaodeKey, baiduKey, regionFilter,
   onResults, onProcessingChange,
 }: GeocodingPanelProps) {
   const { t } = useTranslation();
@@ -132,22 +119,12 @@ export function GeocodingPanel({
   const isProcessing = geo.isProcessing;
   const results = geo.results;
 
-  useEffect(() => {
-    onProcessingChange(isProcessing);
-  }, [isProcessing, onProcessingChange]);
-
-  useEffect(() => {
-    onResults(results);
-  }, [results, onResults]);
+  useEffect(() => { onProcessingChange(isProcessing); }, [isProcessing, onProcessingChange]);
+  useEffect(() => { onResults(results); }, [results, onResults]);
 
   const categoryValues = useMemo(() => {
     if (!categoryColumn || !fileData.length) return [];
-    const set = new Set<string>();
-    fileData.forEach(row => {
-      const v = row[categoryColumn]?.trim();
-      if (v) set.add(v);
-    });
-    return Array.from(set);
+    return Array.from(new Set(fileData.map(row => row[categoryColumn]?.trim()).filter(Boolean)));
   }, [categoryColumn, fileData]);
 
   useEffect(() => {
@@ -161,12 +138,11 @@ export function GeocodingPanel({
     });
   }, [categoryValues]);
 
-  const keyMissing = (mapSource === "gaode" && !gaodeKey.trim()) || (mapSource === "baidu" && !baiduKey.trim());
+  const keyMissing = (mapSource === "gaode" && !gaodeKey.trim()) ||
+                     (mapSource === "baidu" && !baiduKey.trim());
 
   const getAddresses = useCallback((): string[] => {
-    if (inputMode === "text") {
-      return textInput.split("\n").map(s => s.trim()).filter(Boolean);
-    }
+    if (inputMode === "text") return textInput.split("\n").map(s => s.trim()).filter(Boolean);
     if (!selectedColumn) return [];
     return fileData.map(row => row[selectedColumn]?.trim()).filter(Boolean) as string[];
   }, [inputMode, textInput, fileData, selectedColumn]);
@@ -248,79 +224,6 @@ export function GeocodingPanel({
 
   return (
     <div className="space-y-3">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Settings className="h-4 w-4" /> {t("settings.title")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("settings.mapSource")}</label>
-            <Select value={mapSource} onValueChange={(v) => onMapSourceChange(v as MapSource)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gaode">{t("settings.gaode")}</SelectItem>
-                <SelectItem value="baidu">{t("settings.baidu")}</SelectItem>
-                <SelectItem value="osm">{t("settings.osm")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {mapSource === "osm" && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              ⚠️ {t("settings.osmWarning")}
-            </div>
-          )}
-
-          {mapSource === "gaode" && (
-            <div>
-              <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                <Key className="h-3 w-3" /> {t("settings.gaodeKey")}
-              </label>
-              <div className="relative">
-                <Input type={showGaode ? "text" : "password"} value={gaodeKey} onChange={(e) => onGaodeKeyChange(e.target.value)} placeholder={t("settings.gaodeKeyPlaceholder")} className="pr-10 text-sm" />
-                <button type="button" onClick={() => onShowGaodeChange(!showGaode)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                  {showGaode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("settings.gaodeKeyHint")}</p>
-            </div>
-          )}
-
-          {mapSource === "baidu" && (
-            <div>
-              <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                <Key className="h-3 w-3" /> {t("settings.baiduKey")}
-              </label>
-              <div className="relative">
-                <Input type={showBaidu ? "text" : "password"} value={baiduKey} onChange={(e) => onBaiduKeyChange(e.target.value)} placeholder={t("settings.baiduKeyPlaceholder")} className="pr-10 text-sm" />
-                <button type="button" onClick={() => onShowBaiduChange(!showBaidu)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                  {showBaidu ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("settings.baiduKeyHint")}</p>
-            </div>
-          )}
-
-          {mapSource === "osm" && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-              ✅ {t("settings.osmFree")}
-            </div>
-          )}
-
-          <div>
-            <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-              <MapPin className="h-3 w-3" /> {t("settings.regionFilter")}
-            </label>
-            <Input value={regionFilter} onChange={(e) => onRegionFilterChange(e.target.value)} placeholder={mapSource === "osm" ? t("settings.regionFilterOsm") : t("settings.regionFilterOther")} className="text-sm" />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {mapSource === "osm" ? t("settings.regionFilterHintOsm") : t("settings.regionFilterHintOther")}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="min-w-0 overflow-hidden">
         <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
           <TabsList className="w-full">

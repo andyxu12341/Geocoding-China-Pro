@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Geospatial Studio",
+    "title": "Geospatial Studio | 地理空间工作站",
     "subtitle": "纯前端 · 高德 / 百度 / OSM 三源 · 坐标转换 + 面域 / POI 查询 · GeoJSON / KML / CSV 导出"
   },
   "settings": {
