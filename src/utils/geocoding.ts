@@ -371,27 +371,28 @@ const DELAY_MS: Record<MapSource, number> = {
 let _jsonpCounter = 0;
 function jsonp<T>(url: string, timeout = 8000): Promise<T> {
   return new Promise((resolve, reject) => {
-    const cbName = `__geocode_cb_${Date.now()}_${_jsonpCounter++}`;
+    let settled = false;
+    const cbName = `__geo_${Date.now()}_${_jsonpCounter++}`;
     const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error("JSONP 请求超时"));
+      if (!settled) { settled = true; cleanup(); reject(new Error("JSONP 请求超时")); }
     }, timeout);
 
     function cleanup() {
       clearTimeout(timer);
       delete (window as unknown as Record<string, unknown>)[cbName];
-      script.remove();
+      const el = document.getElementById(cbName);
+      if (el) el.remove();
     }
 
     (window as unknown as Record<string, unknown>)[cbName] = (data: T) => {
-      cleanup();
-      resolve(data);
+      if (!settled) { settled = true; cleanup(); resolve(data); }
     };
 
     const script = document.createElement("script");
+    script.id = cbName;
     const sep = url.includes("?") ? "&" : "?";
     script.src = `${url}${sep}callback=${cbName}`;
-    script.onerror = () => { cleanup(); reject(new Error("JSONP 脚本加载失败")); };
+    script.onerror = () => { if (!settled) { settled = true; cleanup(); reject(new Error("JSONP 脚本加载失败")); } };
     document.head.appendChild(script);
   });
 }
@@ -411,91 +412,20 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   throw lastErr;
 }
 
-// ── Province/City name heuristics ──
-const PROVINCE_REGEX = /(内蒙古|黑龙江|呼和浩特|石家庄|乌鲁木齐|北京|天津|上海|重庆|河北|山西|辽宁|吉林|江苏|浙江|安徽|福建|江西|山东|河南|湖北|湖南|广东|海南|四川|贵州|云南|陕西|甘肃|青海|台湾|广西|西藏|宁夏|新疆|香港|澳门|太原|沈阳|长春|哈尔滨|南京|杭州|合肥|福州|南昌|济南|青岛|郑州|武汉|长沙|广州|深圳|南宁|海口|成都|贵阳|昆明|拉萨|西安|兰州|西宁|银川|大连|厦门|宁波|苏州|无锡|佛山|东莞|珠海|温州|常州|烟台|潍坊|绍兴|泉州|嘉兴|南通|金华|徐州|惠州)/;
-
-// ── Smart Geocoding: Level Priority ──
-// Lower number = higher priority (more specific)
-const LEVEL_RANK: Record<string, number> = {
-  poi: 1,
-  street: 2,
-  intersection: 3,
-  district: 4,
-  city: 5,
-  province: 6,
-  country: 7,
-};
-
-function levelPriority(level: string | undefined): number {
-  return LEVEL_RANK[level ?? ""] ?? 99;
-}
-
-// ── Keyword Extraction ──
-/**
- * Strip province/city/district prefixes from address to get core keywords.
- * "北京故宫博物院" → "故宫博物院"
- * "上海市东方明珠" → "东方明珠"
- * "北京市" → "" (city-only input, no keywords)
- */
-function extractKeywords(address: string): string {
-  return address
-    .replace(/^(北京|上海|天津|重庆|[内蒙古黑龙江河北山西辽宁吉林江苏浙江安徽福建江西山东河南湖北湖南广东海南四川贵州云南陕西甘肃青海广西西藏宁夏新疆香港澳门]+[省市县省]?)/g, "")
-    .replace(/[各省市县区]$/g, "")
-    .trim();
-}
-
 
 
 // ─────────────────────────────────────────────────────────────────
 // Search-First Geocoding Engine (V3)
 // Core principle: ALWAYS start with POI text search.
-// Only fall back to geocoding API when POI returns nothing useful.
+// Only fall back to geocoding API when POI returns nothing.
+// AMap's own ranking is authoritative — trust the first result.
 // ─────────────────────────────────────────────────────────────────
 
-type POIQualityLevel = "poi" | "street" | "city" | "unknown";
-
-interface POIResultWithQuality {
-  item: GeocodeItem;
-  qualityLevel: POIQualityLevel;
-}
-
-/**
- * Quality-check a POI search result:
- * - POI/Interest Point level: named landmark (故宫, 东方明珠) → quality=poi
- * - Street level: road + number → quality=street
- * - City/District: city center or district → quality=city
- */
-function qualityCheckPOI(poi: { name: string; location: string; address: string; type?: string }): POIQualityLevel {
-  const name = poi.name ?? "";
-  const addr = poi.address ?? "";
-  const combined = `${name} ${addr}`;
-
-  // Named landmarks / landmarks / specific buildings → POI level
-  if (
-    /(博物院|塔|广场|大厦|中心|酒店|医院|学校|体育场|电影院|公园|车站|机场|大学|中学|小学|商场|超市|餐厅|饭店)/.test(combined) ||
-    /[一二三四五六七八九十零百千万]+[号楼栋座层]/ .test(combined) ||
-    name.length >= 3
-  ) {
-    return "poi";
-  }
-
-  // Road + number (e.g. "中关村大街1号") → street level
-  if (/[路街大道巷]+[号]/.test(combined)) {
-    return "street";
-  }
-
-  return "city";
-}
-
-/**
- * Call Gaode v3/place/text with maximum quality settings.
- * Returns all results with quality annotations.
- */
 async function searchGaodePOI(
   keyword: string,
   apiKey: string,
   region?: string,
-): Promise<Array<{ name: string; location: string; address: string; type: string; qualityLevel: POIQualityLevel }>> {
+): Promise<Array<{ name: string; location: string; address: string; type: string }>> {
   const url = new URL("https://restapi.amap.com/v3/place/text");
   url.searchParams.set("keywords", keyword);
   url.searchParams.set("key", apiKey);
@@ -521,7 +451,6 @@ async function searchGaodePOI(
       location: p.location,
       address: p.address ?? "",
       type: p.type ?? "",
-      qualityLevel: qualityCheckPOI(p),
     }));
 }
 
@@ -540,10 +469,6 @@ async function geocodeGaode(address: string, apiKey: string, region?: string): P
         ? `${best.name} (${best.address})`
         : best.name;
 
-      console.log(
-        `[geocodeGaode] POI搜索命中: "${best.name}" → [${wgsLng.toFixed(6)}, ${wgsLat.toFixed(6)}]`
-      );
-
       return {
         address,
         lng: wgsLng.toFixed(6),
@@ -554,7 +479,6 @@ async function geocodeGaode(address: string, apiKey: string, region?: string): P
       };
     }
 
-    console.log(`[geocodeGaode] POI搜索无结果，fallback到地理编码API: "${address}"`);
     const geoResult = await geocodeGaodeFallback(address, apiKey, region);
     if (geoResult) return geoResult;
 
@@ -588,39 +512,20 @@ async function geocodeGaodeFallback(address: string, apiKey: string, region?: st
   };
   if (data.status !== "1" || !data.geocodes?.length) return null;
 
-  // Rank results by specificity
-  const ranked = data.geocodes
-    .filter(g => g.location)
-    .map(g => {
-      const [gcjLng, gcjLat] = g.location.split(",").map(Number);
-      const [wgsLng, wgsLat] = gcj02towgs84(gcjLng, gcjLat);
-      const lvl = g.level ?? "";
-      return {
-        location: g,
-        lng: wgsLng.toFixed(6),
-        lat: wgsLat.toFixed(6),
-        level: lvl,
-        score: levelPriority(lvl),
-      };
-    })
-    .sort((a, b) => a.score - b.score);
+  const first = data.geocodes.find(g => g.location);
+  if (!first) return null;
 
-  if (ranked.length === 0) return null;
-
-  const top = ranked[0];
-  const lvl = top.level;
-  const isGeneric = levelPriority(lvl) >= levelPriority("city");
-
-  console.log(
-    `[定位引擎] 模式: Geocoding降级 | 命中类型: ${lvl} | ` +
-    `名称: "${top.location.formatted_address}" | 最终坐标: [${top.lng}, ${top.lat}]`
-  );
+  const [gcjLng, gcjLat] = first.location.split(",").map(Number);
+  const [wgsLng, wgsLat] = gcj02towgs84(gcjLng, gcjLat);
+  const lvl = first.level ?? "";
+  const genericLevels = ["city", "province", "country"];
+  const isGeneric = genericLevels.includes(lvl);
 
   return {
     address,
-    lng: top.lng,
-    lat: top.lat,
-    formattedAddress: top.location.formatted_address,
+    lng: wgsLng.toFixed(6),
+    lat: wgsLat.toFixed(6),
+    formattedAddress: first.formatted_address,
     source: "gaode" as const,
     status: "success" as const,
     warning: isGeneric ? "已定位到区域中心" : undefined,
@@ -638,7 +543,6 @@ async function geocodeBaidu(address: string, apiKey: string, region?: string): P
   }
   const { lng: gcjLng, lat: gcjLat } = data.result.location;
   const [lng, lat] = gcj02towgs84(gcjLng, gcjLat);
-  console.log(`[GeocodeBaidu] address="${address}" GCJ-02=${gcjLng},${gcjLat} → WGS84=${lng.toFixed(6)},${lat.toFixed(6)}`);
   return {
     address,
     lng: lng.toFixed(6),
@@ -1088,7 +992,6 @@ export async function queryOSMArea(
   let data: OverpassResponse | null = null;
   for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
     const endpoint = OVERPASS_ENDPOINTS[i];
-    console.log(`[Overpass] 节点 ${i + 1}/${OVERPASS_ENDPOINTS.length} — QL:`, query);
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -1175,7 +1078,6 @@ async function runOverpassQuery(query: string, signal?: AbortSignal): Promise<Ov
   let lastErr: Error | null = null;
   for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
     const endpoint = OVERPASS_ENDPOINTS[i];
-    console.log(`[Overpass] 节点 ${i + 1}/${OVERPASS_ENDPOINTS.length} — QL:`, query);
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -1302,10 +1204,7 @@ export async function queryGaodePOI(
   if (bbox) {
     const [gcjSouth, gcjWest, gcjNorth, gcjEast] = transformBbox(bbox, wgs84togcj02);
     const rect = `${gcjWest},${gcjSouth},${gcjEast},${gcjNorth}`;
-    console.log(`[GaodePOI] key=${apiKey} types=${typeCode || "(all)"} rect=${rect}`);
     url.searchParams.set("rect", rect);
-  } else {
-    console.log(`[GaodePOI] key=${apiKey} types=${typeCode || "(all)"} keyword=${keyword} region=${region || "(none)"}`);
   }
 
   const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
@@ -1322,8 +1221,6 @@ export async function queryGaodePOI(
       type?: string;
     }>;
   };
-
-  console.log(`[GaodePOI] status=${data.status} infocode=${data.infocode} count=${data.count} pois=${data.pois?.length ?? 0}`);
 
   if (data.status !== "1") {
     throw new Error(`高德 POI 查询失败: ${data.info} (${data.infocode})`);
@@ -1377,12 +1274,13 @@ export async function queryBaiduPOI(
   };
   const typeCode = POITYPE_MAP[poiType] || "";
 
-  const url = new URL("https://api.map.baidu.com/place/v2/search");
+  const url = new URL("https://api.map.baidu.com/place/v3/search");
   url.searchParams.set("query", typeCode ? `${typeCode}${keyword}` : keyword);
   url.searchParams.set("tag", typeCode);
   url.searchParams.set("ak", apiKey);
   url.searchParams.set("output", "json");
-  url.searchParams.set("scope", "1");
+  url.searchParams.set("scope", "2");
+  url.searchParams.set("ret_coordtype", "gcj02ll");
   url.searchParams.set("page_size", "50");
   url.searchParams.set("page_num", "0");
   if (region) url.searchParams.set("region", region);
@@ -1404,7 +1302,7 @@ export async function queryBaiduPOI(
   }
 
   return data.results
-    .filter(r => r.location)
+    .filter(r => r.location && r.location.lat > 0 && r.location.lng > 0)
     .map(r => {
       const [lng, lat] = bd09towgs84(r.location.lng, r.location.lat);
       return {
