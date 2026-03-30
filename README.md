@@ -1,8 +1,8 @@
 # Geocoding-China-Pro | 地理编码与面域数据工作站
 
-**Spatial Data Workstation** — 批量地理编码转换 & OpenStreetMap 面域数据提取工具
+**空间数据工作站** — 批量地理编码转换 & OpenStreetMap 面域数据提取工具
 
-**空间数据工作站** — Batch Geocoding Converter & OSM Polygon Extraction Tool
+**Spatial Data Workstation** — Batch Geocoding Converter & OSM Polygon Extraction Tool
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub Stars](https://img.shields.io/github/stars/andyxu12341/Geocoding-China-Pro)](https://github.com/andyxu12341/Geocoding-China-Pro/stargazers)
@@ -20,17 +20,20 @@
 - **一小时缓存 / Request Cache** — 相同请求 1 小时内直接返回缓存结果
 - **多候选选择 / Multi-candidate Selection** — 高德返回多个结果时可选最佳匹配
 - **自定义分类着色 / Custom Category Coloring** — 按分类字段彩色标注坐标点
+- **导出 GeoJSON / KML / PNG** — 支持 QGIS / ArcGIS / Google Earth
 
 ### Tab B: 面域提取 | Polygon Extraction
-- **OpenStreetMap 面域查询 / OSM Polygon Query** — 从 OSM 提取建筑轮廓、城市功能区、行政边界
-- **多边形框选 / Draw Rectangle or Polygon** — 矩形框选或多边形自由绘制，精准限定查询范围
-- **语义搜索 / Semantic Search** — 输入地名/POI/行政区名称，自动定位并提取周边面域
-- **城市功能区分类 / Urban Land-use Coloring** — 按 OSM 标签（residential / commercial / park / industrial 等）8 色城市规划配色
-- **导出 GeoJSON & KML & CSV** — 直接导出用于 QGIS / ArcGIS / Google Earth
+- **OpenStreetMap 面域查询 / OSM Polygon Query** — 基于 Overpass API 查询 OSM 建筑轮廓、城市功能区、行政边界
+- **语义搜索 / Semantic Search** — 输入地名/POI/行政区名称，通过 Nominatim 定位后提取周边面域
+- **矩形框选 / Two-Click Rectangle** — 地图上点击两个对角顶点，自动成框并提取框内面域
+- **多边形绘制 / Polygon Drawing** — 自由绘制任意多边形，提取多边形内面域
+- **国土分类着色 / LANDUSE_STANDARD_MAP** — 60+ 分类条目，严格遵循国土空间制图规范（GB 标准），8 色城市规划配色
+- **行政边界 / Administrative Boundaries** — 支持省/市/区县/街道四级行政区边界提取（admin_level 2/4/6/8）
+- **导出 GeoJSON & KML & CSV** — 直接导出用于 QGIS / ArcGIS / Google Earth，KML 按分类自动着色
 
 ### 地图可视化 | Map Visualization
 - **9 种底图 / 9 Tile Layers** — 高德、OpenStreetMap、Esri 卫星、高德卫星、智图、天地图（街景/卫星）、CARTO 暗色
-- **分类图例 / Category Legend** — 按中文分类聚合显示，无冗余
+- **分类图例 / Category Legend** — 按实际渲染颜色聚合显示，无冗余
 - **自动聚焦 / Auto-fit** — 查询结果自动缩放至所有坐标范围
 - **实时进度条 / Real-time Progress** — 显示处理进度、成功/失败计数
 
@@ -74,7 +77,6 @@ npm run build  # 构建生产版本 / Build for production
 - **地图库 / Map**: Leaflet + leaflet-draw + leaflet.chinatmsproviders
 - **样式 / Styling**: Tailwind CSS
 - **数据处理 / Data**: PapaParse, XLSX
-- **图表 / Charts**: Recharts
 - **国际化 / i18n**: i18next + react-i18next
 - **动画 / Animation**: Framer Motion
 
@@ -87,7 +89,7 @@ src/
 ├── pages/
 │   └── Index.tsx              # 主页面 | Main page
 ├── components/
-│   ├── GeoMap.tsx             # 地图组件 | Map component
+│   ├── GeoMap.tsx             # 地图组件（Leaflet 原生）| Map component (raw Leaflet)
 │   ├── AreaQueryPanel.tsx     # 面域提取面板 | Area query panel
 │   ├── ResultsSection.tsx     # 统一结果表格 | Unified results table
 │   └── ui/                   # shadcn/ui 组件库
@@ -95,8 +97,8 @@ src/
 │   ├── useGeocoding.ts        # 坐标转换 Hook | Geocoding hook
 │   └── useOverpassQuery.ts    # 面域查询 Hook | Overpass query hook
 ├── utils/
-│   ├── geocoding.ts           # 地理编码核心逻辑 | Core geocoding
-│   └── exportUtils.ts         # 导出功能 | Export utilities
+│   ├── geocoding.ts           # 地理编码 + Overpass QL 查询 | Geocoding + Overpass QL
+│   └── exportUtils.ts         # 导出 CSV / GeoJSON / KML | Export utilities
 ├── i18n/
 │   └── locales/              # 翻译文件 zh.json / en.json
 └── lib/
