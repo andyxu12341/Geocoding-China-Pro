@@ -101,6 +101,7 @@
     "areaNoResult": "No results",
     "areaNoResultHint": "No OSM polygon data found for '{{keyword}}'",
     "areaQueryFail": "Query failed",
+    "areaError": "Overpass Query Failed",
     "historyLoaded": "History loaded",
     "historyLoadedHint": "{{count}} results",
     "noKeyword": "Please enter a keyword",

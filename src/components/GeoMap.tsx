@@ -78,6 +78,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     getZoom: () => mapRef.current?.getZoom() ?? 0,
     getBounds: () => mapRef.current?.getBounds() ?? null,
     setDrawMode: (mode) => {
+      console.log("[GeoMap] setDrawMode called:", mode);
       drawModeRef.current = mode;
       const map = mapRef.current;
       if (!map) return;
@@ -87,6 +88,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       map.fire("draw:modechange");
     },
     setDrawCallbacks: (rectDone, polyDone) => {
+      console.log("[GeoMap] setDrawCallbacks called, rectDone:", !!rectDone, "polyDone:", !!polyDone);
       drawCallbacksRef.current = { rectDone, polyDone };
     },
     cancelDraw: () => {
@@ -297,14 +299,20 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     const activeHandlerRef = useRef<L.Draw.Rectangle | L.Draw.Polygon | null>(null);
 
     useEffect(() => {
+      console.log("[DrawController] Effect mounted, map ready:", !!mapRef.current);
       const map = mapRef.current;
       if (!map || !drawLayerRef.current) return;
 
       const handleModeChange = () => {
-        if (!drawLayerRef.current) return;
+        console.log("[DrawController] handleModeChange fired, drawModeRef:", drawModeRef.current);
+        if (!drawLayerRef.current) {
+          console.warn("[DrawController] drawLayerRef not ready");
+          return;
+        }
 
         if (activeHandlerRef.current) {
-          try { activeHandlerRef.current.disable(); } catch {}
+          console.log("[DrawController] Disabling previous handler");
+          try { activeHandlerRef.current.disable(); } catch (e) { console.warn("[DrawController] disable error:", e); }
           activeHandlerRef.current = null;
         }
 
@@ -313,16 +321,22 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
         const mode = drawModeRef.current;
         const callbacks = drawCallbacksRef.current;
+        console.log("[DrawController] Mode:", mode, "callbacks:", callbacks);
 
-        if (mode === "none") return;
+        if (mode === "none") {
+          console.log("[DrawController] Mode is none, skipping handler creation");
+          return;
+        }
 
         let handler: L.Draw.Rectangle | L.Draw.Polygon;
 
         if (mode === "rectangle") {
+          console.log("[DrawController] Creating L.Draw.Rectangle");
           handler = new L.Draw.Rectangle(map, {
             shapeOptions: { color: "#6366f1", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
           });
         } else {
+          console.log("[DrawController] Creating L.Draw.Polygon");
           handler = new L.Draw.Polygon(map, {
             shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
             allowIntersection: false,
@@ -331,8 +345,10 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
         activeHandlerRef.current = handler;
         handler.enable();
+        console.log("[DrawController] Handler enabled for mode:", mode);
 
         map.on(L.Draw.Event.CREATED, (e: L.LeafletEvent) => {
+          console.log("[DrawController] draw:created fired, mode:", mode);
           const layer = (e as L.DrawEvents.Created).layer;
           if (drawLayerRef.current) {
             drawLayerRef.current.addLayer(layer);
@@ -340,9 +356,13 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
           }
 
           if (mode === "rectangle" && callbacks.rectDone) {
+            console.log("[DrawController] Calling rectDone callback");
             callbacks.rectDone((layer as L.Rectangle).getBounds());
           } else if (mode === "polygon" && callbacks.polyDone) {
+            console.log("[DrawController] Calling polyDone callback");
             callbacks.polyDone((layer as L.Polygon).getLatLngs()[0] as L.LatLng[]);
+          } else {
+            console.warn("[DrawController] No callback for mode:", mode, "callbacks:", callbacks);
           }
         });
       };

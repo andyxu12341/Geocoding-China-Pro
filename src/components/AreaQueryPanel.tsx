@@ -54,7 +54,7 @@ const MODE_OPTIONS: { value: AreaQueryMode; labelKey: string; hintKey: string; i
 export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { fetchPolygons, isLoading } = useOverpassQuery();
+  const { fetchPolygons, isLoading, error } = useOverpassQuery();
 
   const [mode, setMode] = useState<AreaQueryMode>("semantic");
   const [keyword, setKeyword] = useState("");
@@ -262,6 +262,13 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             mode === "polygon" ? <><Pentagon className="h-4 w-4" /> {t("areaQuery.startDrawPoly")}</> :
             <><Search className="h-4 w-4" /> {t("areaQuery.query")}</>}
         </Button>
+
+        {error && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
+            <p className="font-medium">{t("toast.areaError") || "查询失败"}</p>
+            <p className="mt-1">{error}</p>
+          </div>
+        )}
 
       </CardContent>
     </Card>

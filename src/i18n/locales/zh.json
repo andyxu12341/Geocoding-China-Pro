@@ -101,6 +101,7 @@
     "areaNoResult": "未找到结果",
     "areaNoResultHint": "在 OSM 中未找到「{{keyword}}」相关的面数据",
     "areaQueryFail": "查询失败",
+    "areaError": "Overpass 查询失败",
     "historyLoaded": "已加载历史记录",
     "historyLoadedHint": "{{count}} 条结果",
     "noKeyword": "请输入关键词",
