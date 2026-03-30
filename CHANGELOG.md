@@ -6,6 +6,20 @@ The format is based on [Conventional Commits](https://www.conventionalcommits.or
 
 ---
 
+## [1.0.1](https://github.com/andyxu12341/Geocoding-China-Pro/compare/v1.0.0...v1.0.1) (2026-03-31)
+
+### Documentation
+
+* add initial CHANGELOG.md for v1.0.0
+
+### Maintenance
+
+* add release-it v1.0.0 with conventional changelog
+* update release-it hooks to use direct vite build
+* disable GitHub API release, handle push manually
+
+---
+
 ## [1.0.0](https://github.com/andyxu12341/Geocoding-China-Pro/compare/v0.0.0...v1.0.0) (2026-03-31)
 
 ### Features
