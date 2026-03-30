@@ -38,7 +38,16 @@ export function useOverpassQuery(): UseOverpassQueryReturn {
       setResults(data);
       return data;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "查询失败";
+      let msg = "查询失败";
+      if (err instanceof Error) {
+        if (err.message.includes("504") || err.message.includes("Gateway") || err.message.includes("timeout") || err.message.includes("Timeout")) {
+          msg = "Overpass 服务器响应超时，请缩小查询范围或稍后再试";
+        } else if (err.message.includes("429")) {
+          msg = "请求过于频繁，请稍后再试";
+        } else {
+          msg = err.message;
+        }
+      }
       setError(msg);
       return [];
     } finally {

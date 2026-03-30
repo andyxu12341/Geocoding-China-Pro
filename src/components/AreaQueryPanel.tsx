@@ -128,7 +128,12 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
         onResults(results);
       } else {
         const bounds = geoMapRef.current?.getBounds();
+        const zoom = geoMapRef.current?.getZoom() ?? 0;
         if (!bounds) return;
+        if (zoom < 14) {
+          toast({ title: "查询范围过大", description: "请放大地图（缩放级别 ≥ 14）后再试！", variant: "destructive" });
+          return;
+        }
         const bbox: [number, number, number, number] = [
           bounds.getSouth(),
           bounds.getWest(),
