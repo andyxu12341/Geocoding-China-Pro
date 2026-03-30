@@ -52,14 +52,6 @@
     "success": "成功",
     "failed": "失败"
   },
-  "stats": {
-    "title": "统计图表",
-    "successRate": "成功率",
-    "categoryDist": "类别分布",
-    "count": "数量",
-    "uncategorized": "未分类",
-    "tooltipCount": "条"
-  },
   "map": {
     "title": "地理底图",
     "markers": "{{count}} 个坐标点",
@@ -81,7 +73,12 @@
     "status": "状态",
     "action": "操作",
     "copyCoords": "复制坐标",
-    "select": "选择"
+    "select": "选择",
+    "polyName": "名称",
+    "polyCategory": "类别",
+    "polyOsmId": "OSM ID",
+    "polyCenter": "中心点",
+    "polyTags": "标签"
   },
   "toast": {
     "parseError": "解析失败",
@@ -105,9 +102,6 @@
     "historyLoaded": "已加载历史记录",
     "historyLoadedHint": "{{count}} 条结果",
     "noKeyword": "请输入关键词",
-    "zoomTooLow": "查询范围过大，请放大地图后再试",
-    "drawFirst": "请先绘制范围",
-    "drawFirstHint": "请先点击下方按钮在地图上绘制范围，再执行查询",
     "candidateSelected": "已选择",
     "cacheCleared": "缓存已清除",
     "pleaseWait": "请稍候",
@@ -148,8 +142,6 @@
     "extractionMode": "提取范围模式",
     "modeSemantic": "语义搜索",
     "modeSemanticHint": "按地名/POI/行政区名称搜索，如：济南中山公园",
-    "modeViewport": "当前视野",
-    "modeViewportHint": "提取当前地图视野范围内的所有面数据",
     "modeRectangle": "矩形框选",
     "modeRectangleHint": "在地图上绘制矩形框，提取框内面数据",
     "modePolygon": "多边形绘制",
@@ -161,7 +153,6 @@
     "startDrawPoly": "在地图上绘制多边形",
     "drawRectHint": "在地图上点击两个对角顶点，自动成框",
     "drawPolyHint": "请在右侧地图上点击绘制多边形（双击结束）",
-    "viewportHint": "📍 将地图缩放/拖动到目标区域后点击「查询」按钮，将提取当前视野范围内的所有面数据",
     "rendered": "已在地图上渲染 {{count}} 个面数据"
   },
   "tabs": {

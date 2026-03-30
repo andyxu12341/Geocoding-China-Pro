@@ -103,7 +103,7 @@ export function exportPolygonCSV(results: AreaResult[]) {
     r.name || "",
     String(r.osmId),
     r.osmType,
-    r.category ?? "other",
+    r.categoryName ?? "",
     r.center?.lat != null ? String(r.center.lat) : "",
     r.center?.lng != null ? String(r.center.lng) : "",
     Object.entries(r.tags ?? {}).map(([k, v]) => `${k}=${v}`).join("; "),
@@ -127,7 +127,7 @@ export function exportPolygonGeoJSON(results: AreaResult[]) {
         name: r.name,
         osm_id: r.osmId,
         osm_type: r.osmType,
-        category: r.category ?? null,
+        category: r.categoryName ?? "",
         tags: r.tags ?? {},
       },
     }));
@@ -141,16 +141,9 @@ export function exportPolygonGeoJSON(results: AreaResult[]) {
 }
 
 export function exportPolygonKML(results: AreaResult[]) {
-  const categoryStyle = (cat: string | undefined) => {
-    const colors: Record<string, string> = {
-      residential: "ffF5D0A9", commercial: "ffF78181", retail: "ffFA5858",
-      industrial: "ffD8D8D8", park: "ffA9F5A9", leisure: "ff81F781",
-      school: "ffF5A9E1", university: "ffF5A9E1", hospital: "ffF7819F",
-      building: "ff58ACFA", default: "ffA4A4A4",
-    };
-    const hex = colors[cat ?? "default"] ?? colors.default;
-    const abgr = hex.slice(0, 2) + hex.slice(6, 8) + hex.slice(4, 6) + hex.slice(2, 4);
-    return `<Style><PolyStyle><color>${abgr}</color><fill>1</fill><outline>1</outline></PolyStyle></Style>`;
+  const hexToAbgr = (hex: string) => {
+    const h = hex.replace("#", "");
+    return h.slice(6, 8) + h.slice(4, 6) + h.slice(2, 4) + h.slice(0, 2);
   };
 
   const styles = new Map<string, string>();
@@ -159,10 +152,54 @@ export function exportPolygonKML(results: AreaResult[]) {
   const placemarks = results
     .filter(r => r.polygon && r.polygon.length > 0)
     .map(r => {
-      const cat = r.category ?? "default";
-      if (!styles.has(cat)) {
-        styles.set(cat, `catStyle_${styleIndex++}`);
+      const colorKey = r.categoryName;
+      if (!styles.has(colorKey)) {
+        styles.set(colorKey, `catStyle_${styleIndex++}`);
       }
+      const styleUrl = styles.get(colorKey)!;
+
+      const coords = r.polygon[0]
+        .map(c => `${c[0]},${c[1]},0`)
+        .join(" ");
+      const ring = `<LinearRing><coordinates>${coords}</coordinates></LinearRing>`;
+      const tagLines = Object.entries(r.tags ?? {})
+        .map(([k, v]) => `<SimpleData name="${escapeXml(k)}">${escapeXml(v)}</SimpleData>`)
+        .join("");
+      return `  <Placemark>
+    <name>${escapeXml(r.name)}</name>
+    <description>${escapeXml(r.categoryName)}</description>
+    <styleUrl>#${styleUrl}</styleUrl>
+    <ExtendedData><SchemaData schemaUrl="#polySchema">${tagLines}</SchemaData></ExtendedData>
+    <Polygon><outerBoundaryIs>${ring}</outerBoundaryIs></Polygon>
+  </Placemark>`;
+    })
+    .join("\n");
+
+  const styleBlocks = Array.from(styles.entries())
+    .map(([name, id]) => {
+      const r2 = results.find(r => r.categoryName === name);
+      const abgr = hexToAbgr(r2?.color ?? "#E0E0E0");
+      return `<Style id="${id}"><PolyStyle><color>${abgr}</color><fill>1</fill></PolyStyle></Style>`;
+    })
+    .join("\n");
+
+  const schemaFields = Array.from(styles.keys())
+    .flatMap(cat => Object.keys(results.find(r => r.categoryName === cat)?.tags ?? {}))
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .map(f => `<SimpleField name="${escapeXml(f)}" type="string"></SimpleField>`)
+    .join("");
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>Polygon Extraction ${ts()}</name>
+  <Schema name="polySchema" id="polySchema">${schemaFields}</Schema>
+ ${styleBlocks}
+ ${placemarks}
+ </Document>
+</kml>`;
+  downloadBlob(kml, `Polygons_${ts()}.kml`, "application/vnd.google-earth.kml+xml");
+}
       const styleUrl = styles.get(cat)!;
 
       const coords = r.polygon[0]

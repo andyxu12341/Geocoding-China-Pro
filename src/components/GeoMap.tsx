@@ -338,7 +338,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       latLngs.push([m.lat, m.lng]);
     });
 
-    const seenCategories = new Set<string>();
+    const seenCategories = new Map<string, string>();
     polygons?.forEach((poly) => {
       const color = poly.color || "#E0E0E0";
       poly.rings.forEach(ring => {
@@ -361,6 +361,9 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
         })
           .bindPopup(
             `<div style="font-weight:600;margin-bottom:4px">${poly.label}</div>` +
+            `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">` +
+            `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};border:1px solid rgba(0,0,0,0.2);"></span>` +
+            `<span style="font-size:11px;color:#555;">${poly.categoryName}</span></div>` +
             `<div style="font-size:11px;color:#666">${tagLines || "OSM 多边形数据"}</div>`,
             { closeButton: false }
           )
@@ -368,13 +371,13 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
         latLngs.push(latLngRing[0] as L.LatLngTuple);
       });
-      seenCategories.add(poly.categoryName);
+      seenCategories.set(poly.categoryName, color);
     });
 
     const legendItems: { color: string; label: string }[] = [];
     categoryColors?.forEach(cc => legendItems.push({ color: cc.color, label: cc.category }));
-    seenCategories.forEach(name => {
-      legendItems.push({ color: "#E0E0E0", label: name });
+    seenCategories.forEach((color, name) => {
+      legendItems.push({ color, label: name });
     });
 
     if (legendItems.length > 0) {

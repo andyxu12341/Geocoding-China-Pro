@@ -52,14 +52,6 @@
     "success": "Success",
     "failed": "Failed"
   },
-  "stats": {
-    "title": "Statistics",
-    "successRate": "Success Rate",
-    "categoryDist": "Category Distribution",
-    "count": "Count",
-    "uncategorized": "Uncategorized",
-    "tooltipCount": "items"
-  },
   "map": {
     "title": "Map",
     "markers": "{{count}} markers",
@@ -81,7 +73,12 @@
     "status": "Status",
     "action": "Action",
     "copyCoords": "Copy coordinates",
-    "select": "Select"
+    "select": "Select",
+    "polyName": "Name",
+    "polyCategory": "Category",
+    "polyOsmId": "OSM ID",
+    "polyCenter": "Center",
+    "polyTags": "Tags"
   },
   "toast": {
     "parseError": "Parse failed",
@@ -105,9 +102,6 @@
     "historyLoaded": "History loaded",
     "historyLoadedHint": "{{count}} results",
     "noKeyword": "Please enter a keyword",
-    "zoomTooLow": "Search area too large. Please zoom in the map.",
-    "drawFirst": "Please draw an area first",
-    "drawFirstHint": "Click the button below to draw a range on the map, then query",
     "candidateSelected": "Selected",
     "cacheCleared": "Cache cleared",
     "pleaseWait": "Please wait",
@@ -148,8 +142,6 @@
     "extractionMode": "Extraction Range Mode",
     "modeSemantic": "Semantic Search",
     "modeSemanticHint": "Search by place name / POI / administrative district",
-    "modeViewport": "Current Viewport",
-    "modeViewportHint": "Extract all polygons within current map view",
     "modeRectangle": "Rectangle Selection",
     "modeRectangleHint": "Draw a rectangle on the map to extract polygons within",
     "modePolygon": "Polygon Drawing",
@@ -161,7 +153,6 @@
     "startDrawPoly": "Draw Polygon on Map",
     "drawRectHint": "Click two diagonal corners on the map to create a rectangle",
     "drawPolyHint": "Click on the map to draw a polygon (double-click to finish)",
-    "viewportHint": "📍 Pan/zoom the map to target area, then click Query to extract polygons in current view",
     "rendered": "Rendered {{count}} polygons on map"
   },
   "tabs": {

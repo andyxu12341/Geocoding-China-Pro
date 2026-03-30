@@ -125,11 +125,11 @@ export function ResultsSection({
                 >
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
-                      <TableHead className="whitespace-nowrap">名称</TableHead>
-                      <TableHead className="whitespace-nowrap">类别</TableHead>
-                      <TableHead className="whitespace-nowrap">OSM ID</TableHead>
-                      <TableHead className="whitespace-nowrap">中心点</TableHead>
-                      <TableHead className="max-w-xs truncate whitespace-nowrap">标签</TableHead>
+                      <TableHead className="whitespace-nowrap">{t("results.polyName")}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t("results.polyCategory")}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t("results.polyOsmId")}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t("results.polyCenter")}</TableHead>
+                      <TableHead className="max-w-xs truncate whitespace-nowrap">{t("results.polyTags")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
