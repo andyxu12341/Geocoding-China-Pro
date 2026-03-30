@@ -7,30 +7,24 @@ export type MapSource = "gaode" | "baidu" | "osm";
 
 export type AreaQueryType =
   | "all"         // 所有面域
-  | "building"    // 建筑
-  | "residential" // 住宅区
-  | "park"        // 景区/公园
-  | "commercial"  // 功能区/商业
-  | "administrative"; // 行政区
+  | "building"    // 建筑轮廓
+  | "landuse"     // 城市功能区
+  | "admin";      // 行政边界
 
 export type AreaQueryMode = "semantic" | "viewport" | "rectangle" | "polygon";
 
 export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
   all: "🌐 所有面域",
-  building: "🏢 建筑",
-  residential: "🏘️ 住宅区",
-  park: "🏞️ 景区/公园",
-  commercial: "🏬 功能区/商业",
-  administrative: "🏛️ 行政区",
+  building: "🏢 建筑轮廓",
+  landuse: "🗺️ 城市功能区",
+  admin: "🏛️ 行政边界",
 };
 
 export const AREA_TYPE_DESCRIPTIONS: Record<AreaQueryType, string> = {
-  all: "同时提取建筑、住宅、公园、商业、行政区等多种面域",
+  all: "同时提取建筑、城市功能区、行政边界等多种面域",
   building: "查询建筑物轮廓（如单体建筑、大型场馆）",
-  residential: "查询居住用地边界（如住宅小区、居住组团）",
-  park: "查询公园绿地、景区、旅游景点边界",
-  commercial: "查询商业服务业设施用地边界",
-  administrative: "查询行政区划边界（省/市/区/街道）",
+  landuse: "查询住宅区、商业区、公园绿地、工业用地等城市功能区",
+  admin: "查询行政区划边界（省/市/区/街道）",
 };
 
 export interface GeocodingConfig {
@@ -565,20 +559,21 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "area.targetArea"): st
     case "all":
       return [
         `way["building"](${areaRef});relation["building"](${areaRef});`,
-        `way["landuse"="residential"](${areaRef});relation["landuse"="residential"](${areaRef});`,
-        `way["leisure"="park"](${areaRef});way["landuse"="grass"](${areaRef});way["natural"="park"](${areaRef});relation["leisure"="park"](${areaRef});`,
-        `way["landuse"="commercial"](${areaRef});way["landuse"="retail"](${areaRef});`,
+        `way["landuse"~"residential|commercial|retail|industrial|grass|natural"](${areaRef});relation["landuse"~"residential|commercial|retail|industrial|grass|natural"](${areaRef});`,
+        `way["leisure"~"park|pitch|playground"](${areaRef});relation["leisure"~"park|pitch|playground"](${areaRef});`,
+        `way["amenity"~"university|hospital|school"](${areaRef});relation["amenity"~"university|hospital|school"](${areaRef});`,
         `relation["boundary"="administrative"](${areaRef});`,
       ].join("");
     case "building":
       return `way["building"](${areaRef});relation["building"](${areaRef});`;
-    case "residential":
-      return `way["landuse"="residential"](${areaRef});relation["landuse"="residential"](${areaRef});`;
-    case "park":
-      return `way["leisure"="park"](${areaRef});way["landuse"="grass"](${areaRef});way["natural"="park"](${areaRef});relation["leisure"="park"](${areaRef});`;
-    case "commercial":
-      return `way["landuse"="commercial"](${areaRef});way["landuse"="retail"](${areaRef});`;
-    case "administrative":
+    case "landuse":
+      return [
+        `way["landuse"~"residential|commercial|retail|industrial"](${areaRef});relation["landuse"~"residential|commercial|retail|industrial"](${areaRef});`,
+        `way["leisure"~"park|nature_reserve|pitch|playground"](${areaRef});relation["leisure"~"park|nature_reserve|pitch|playground"](${areaRef});`,
+        `way["amenity"~"university|hospital|school|college"](${areaRef});relation["amenity"~"university|hospital|school|college"](${areaRef});`,
+        `way["landuse"="grass"];way["natural"="park"];way["landuse"="farmland"];way["landuse"="forest"];`,
+      ].join("");
+    case "admin":
       return `relation["boundary"="administrative"](${areaRef});`;
   }
 }
@@ -600,20 +595,21 @@ function getAreaPolyFilter(type: AreaQueryType, polyStr: string): string {
     case "all":
       return [
         `way["building"];relation["building"];`,
-        `way["landuse"="residential"];relation["landuse"="residential"];`,
-        `way["leisure"="park"];way["landuse"="grass"];way["natural"="park"];relation["leisure"="park"];`,
-        `way["landuse"="commercial"];way["landuse"="retail"];`,
+        `way["landuse"~"residential|commercial|retail|industrial|grass|natural"];relation["landuse"~"residential|commercial|retail|industrial|grass|natural"];`,
+        `way["leisure"~"park|pitch|playground"];relation["leisure"~"park|pitch|playground"];`,
+        `way["amenity"~"university|hospital|school"];relation["amenity"~"university|hospital|school"];`,
         `relation["boundary"="administrative"];`,
       ].join("");
     case "building":
       return `way["building"];relation["building"];`;
-    case "residential":
-      return `way["landuse"="residential"];relation["landuse"="residential"];`;
-    case "park":
-      return `way["leisure"="park"];way["landuse"="grass"];way["natural"="park"];relation["leisure"="park"];`;
-    case "commercial":
-      return `way["landuse"="commercial"];way["landuse"="retail"];`;
-    case "administrative":
+    case "landuse":
+      return [
+        `way["landuse"~"residential|commercial|retail|industrial"];relation["landuse"~"residential|commercial|retail|industrial"];`,
+        `way["leisure"~"park|nature_reserve|pitch|playground"];relation["leisure"~"park|nature_reserve|pitch|playground"];`,
+        `way["amenity"~"university|hospital|school|college"];relation["amenity"~"university|hospital|school|college"];`,
+        `way["landuse"="grass"];way["natural"="park"];way["landuse"="farmland"];way["landuse"="forest"];`,
+      ].join("");
+    case "admin":
       return `relation["boundary"="administrative"];`;
   }
 }

@@ -189,10 +189,8 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             <SelectContent>
               <SelectItem value="all">🌐 {t("areaQuery.all")}</SelectItem>
               <SelectItem value="building">🏢 {t("areaQuery.building")}</SelectItem>
-              <SelectItem value="residential">🏘️ {t("areaQuery.residential")}</SelectItem>
-              <SelectItem value="park">🏞️ {t("areaQuery.park")}</SelectItem>
-              <SelectItem value="commercial">🏬 {t("areaQuery.commercial")}</SelectItem>
-              <SelectItem value="administrative">🏛️ {t("areaQuery.administrative")}</SelectItem>
+              <SelectItem value="landuse">🗺️ {t("areaQuery.landuse")}</SelectItem>
+              <SelectItem value="admin">🏛️ {t("areaQuery.admin")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
