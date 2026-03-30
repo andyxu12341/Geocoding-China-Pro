@@ -439,6 +439,7 @@ async function geocodeGaodePrimary(address: string, apiKey: string, region?: str
     }>;
   };
   if (data.status !== "1" || !data.geocodes?.length) {
+    console.log(`[GaodePrimary] address="${address}" status=${data.status} info=${data.info}`);
     return { item: { address, status: "failed", source: "gaode", error: data.info || "匹配失败: 未找到有效坐标" }, candidates: [] };
   }
 
@@ -463,6 +464,7 @@ async function geocodeGaodePrimary(address: string, apiKey: string, region?: str
   }
 
   const top = candidates[0];
+  console.log(`[GaodePrimary] address="${address}" → WGS84 lng=${top.lng} lat=${top.lat}`);
   return {
     item: { address, lng: top.lng, lat: top.lat, formattedAddress: top.formattedAddress, source: "gaode", status: "success", candidates },
     candidates,
@@ -535,6 +537,7 @@ async function geocodeBaidu(address: string, apiKey: string, region?: string): P
   }
   const { lng: gcjLng, lat: gcjLat } = data.result.location;
   const [lng, lat] = gcj02towgs84(gcjLng, gcjLat);
+  console.log(`[GeocodeBaidu] address="${address}" GCJ-02=${gcjLng},${gcjLat} → WGS84=${lng.toFixed(6)},${lat.toFixed(6)}`);
   return {
     address,
     lng: lng.toFixed(6),
@@ -1197,7 +1200,11 @@ export async function queryGaodePOI(
   }
   if (bbox) {
     const [gcjSouth, gcjWest, gcjNorth, gcjEast] = transformBbox(bbox, wgs84togcj02);
-    url.searchParams.set("rect", `${gcjWest},${gcjSouth},${gcjEast},${gcjNorth}`);
+    const rect = `${gcjWest},${gcjSouth},${gcjEast},${gcjNorth}`;
+    console.log(`[GaodePOI] key=${apiKey} types=${typeCode || "(all)"} rect=${rect}`);
+    url.searchParams.set("rect", rect);
+  } else {
+    console.log(`[GaodePOI] key=${apiKey} types=${typeCode || "(all)"} keyword=${keyword} region=${region || "(none)"}`);
   }
 
   const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
@@ -1205,7 +1212,7 @@ export async function queryGaodePOI(
   const data = await res.json() as {
     status: string;
     info: string;
-    infoCode: string;
+    infocode: string;
     count: string;
     pois?: Array<{
       name: string;
@@ -1215,10 +1222,10 @@ export async function queryGaodePOI(
     }>;
   };
 
-  console.log(`[GaodePOI] status=${data.status} infoCode=${data.infoCode} count=${data.count} pois=${data.pois?.length ?? 0}`);
+  console.log(`[GaodePOI] status=${data.status} infocode=${data.infocode} count=${data.count} pois=${data.pois?.length ?? 0}`);
 
   if (data.status !== "1") {
-    throw new Error(`高德 POI 查询失败: ${data.info} (${data.infoCode})`);
+    throw new Error(`高德 POI 查询失败: ${data.info} (${data.infocode})`);
   }
   if (!data.pois?.length) {
     throw new Error(`高德 POI 未找到结果（${data.count || 0} 条），请尝试其他关键词或扩大搜索范围`);
