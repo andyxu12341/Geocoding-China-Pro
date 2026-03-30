@@ -64,9 +64,11 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
 
   useEffect(() => {
     if (mode === "rectangle") {
-      geoMapRef.current?.enableDrawRect();
+      geoMapRef.current?.setDrawMode("rectangle");
     } else if (mode === "polygon") {
-      geoMapRef.current?.enableDrawPolygon();
+      geoMapRef.current?.setDrawMode("polygon");
+    } else {
+      geoMapRef.current?.cancelDraw();
     }
   }, [mode, geoMapRef]);
 
@@ -88,49 +90,57 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
     }
 
     if (mode === "rectangle") {
-      geoMapRef.current?.startDrawRect((bounds) => {
-        setIsQuerying(true);
-        const bbox: [number, number, number, number] = [
-          bounds.getSouth(),
-          bounds.getWest(),
-          bounds.getNorth(),
-          bounds.getEast(),
-        ];
-        queryOSMArea("rectangle", areaType, { bbox })
-          .then(results => {
-            onResults(results);
-            if (results.length === 0) {
-              toast({ title: t("toast.areaNoResult"), variant: "destructive" });
-            } else {
-              toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
-            }
-          })
-          .catch(err => {
-            toast({ title: t("toast.areaQueryFail"), description: err instanceof Error ? err.message : "", variant: "destructive" });
-          })
-          .finally(() => setIsQuerying(false));
-      });
+      geoMapRef.current?.setDrawCallbacks(
+        (bounds) => {
+          setIsQuerying(true);
+          const bbox: [number, number, number, number] = [
+            bounds.getSouth(),
+            bounds.getWest(),
+            bounds.getNorth(),
+            bounds.getEast(),
+          ];
+          queryOSMArea("rectangle", areaType, { bbox })
+            .then(results => {
+              onResults(results);
+              if (results.length === 0) {
+                toast({ title: t("toast.areaNoResult"), variant: "destructive" });
+              } else {
+                toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
+              }
+            })
+            .catch(err => {
+              toast({ title: t("toast.areaQueryFail"), description: err instanceof Error ? err.message : "", variant: "destructive" });
+            })
+            .finally(() => { setIsQuerying(false); geoMapRef.current?.setDrawMode("none"); });
+        },
+        null
+      );
+      geoMapRef.current?.setDrawMode("rectangle");
       return;
     }
 
     if (mode === "polygon") {
-      geoMapRef.current?.startDrawPolygon((latlngs) => {
-        setIsQuerying(true);
-        const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
-        queryOSMArea("polygon", areaType, { polygonLatLngs })
-          .then(results => {
-            onResults(results);
-            if (results.length === 0) {
-              toast({ title: t("toast.areaNoResult"), variant: "destructive" });
-            } else {
-              toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
-            }
-          })
-          .catch(err => {
-            toast({ title: t("toast.areaQueryFail"), description: err instanceof Error ? err.message : "", variant: "destructive" });
-          })
-          .finally(() => setIsQuerying(false));
-      });
+      geoMapRef.current?.setDrawCallbacks(
+        null,
+        (latlngs) => {
+          setIsQuerying(true);
+          const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
+          queryOSMArea("polygon", areaType, { polygonLatLngs })
+            .then(results => {
+              onResults(results);
+              if (results.length === 0) {
+                toast({ title: t("toast.areaNoResult"), variant: "destructive" });
+              } else {
+                toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
+              }
+            })
+            .catch(err => {
+              toast({ title: t("toast.areaQueryFail"), description: err instanceof Error ? err.message : "", variant: "destructive" });
+            })
+            .finally(() => { setIsQuerying(false); geoMapRef.current?.setDrawMode("none"); });
+        }
+      );
+      geoMapRef.current?.setDrawMode("polygon");
       return;
     }
 

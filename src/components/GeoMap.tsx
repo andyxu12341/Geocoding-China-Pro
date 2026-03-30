@@ -6,6 +6,8 @@ import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
 import { AREA_CATEGORY_COLORS, AREA_CATEGORY_LABELS } from "@/utils/geocoding";
 
+type DrawMode = "none" | "rectangle" | "polygon";
+
 export interface MapMarker {
   lat: number;
   lng: number;
@@ -40,11 +42,9 @@ export interface GeoMapHandle {
   getMap: () => L.Map | null;
   getZoom: () => number;
   getBounds: () => L.LatLngBounds | null;
-  startDrawRect: (onDone: (bounds: L.LatLngBounds) => void) => void;
-  startDrawPolygon: (onDone: (latlngs: L.LatLng[]) => void) => void;
+  setDrawMode: (mode: DrawMode) => void;
+  setDrawCallbacks: (rectDone: ((bounds: L.LatLngBounds) => void) | null, polyDone: ((latlngs: L.LatLng[]) => void) | null) => void;
   cancelDraw: () => void;
-  enableDrawRect: () => void;
-  enableDrawPolygon: () => void;
   invalidateSize: () => void;
 }
 
@@ -67,77 +67,33 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   const osmLayerRef = useRef<L.TileLayer | null>(null);
   const darkLayerRef = useRef<L.TileLayer | null>(null);
   const legendRef = useRef<L.Control | null>(null);
+  const drawModeRef = useRef<DrawMode>("none");
+  const drawCallbacksRef = useRef<{
+    rectDone: ((bounds: L.LatLngBounds) => void) | null;
+    polyDone: ((latlngs: L.LatLng[]) => void) | null;
+  }>({ rectDone: null, polyDone: null });
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
     getZoom: () => mapRef.current?.getZoom() ?? 0,
     getBounds: () => mapRef.current?.getBounds() ?? null,
-    startDrawRect: (onDone) => {
+    setDrawMode: (mode) => {
+      drawModeRef.current = mode;
       const map = mapRef.current;
       if (!map) return;
-      if (!drawLayerRef.current) {
-        drawLayerRef.current = new L.FeatureGroup();
-        map.addLayer(drawLayerRef.current);
-      }
-      drawLayerRef.current.clearLayers();
-      const rect = new L.Draw.Rectangle(map, {
-        shapeOptions: { color: "#6366f1", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
-      });
-      rect.enable();
-      map.once("draw:created", (e: L.LeafletEvent) => {
-        const layer = (e as L.DrawEvents.Created).layer as L.Rectangle;
-        drawLayerRef.current!.addLayer(layer);
-        onDone(layer.getBounds());
-      });
+      const prevMode = (map as L.Map & { _prevDrawMode?: DrawMode })._prevDrawMode;
+      if (prevMode === mode) return;
+      (map as L.Map & { _prevDrawMode?: DrawMode })._prevDrawMode = mode;
+      map.fire("draw:modechange");
     },
-    startDrawPolygon: (onDone) => {
-      const map = mapRef.current;
-      if (!map) return;
-      if (!drawLayerRef.current) {
-        drawLayerRef.current = new L.FeatureGroup();
-        map.addLayer(drawLayerRef.current);
-      }
-      drawLayerRef.current.clearLayers();
-      const poly = new L.Draw.Polygon(map, {
-        shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
-        allowIntersection: false,
-      });
-      poly.enable();
-      map.once("draw:created", (e: L.LeafletEvent) => {
-        const layer = (e as L.DrawEvents.Created).layer as L.Polygon;
-        drawLayerRef.current!.addLayer(layer);
-        onDone(layer.getLatLngs()[0] as L.LatLng[]);
-      });
+    setDrawCallbacks: (rectDone, polyDone) => {
+      drawCallbacksRef.current = { rectDone, polyDone };
     },
     cancelDraw: () => {
+      drawModeRef.current = "none";
       const map = mapRef.current;
-      if (!map) return;
-      drawLayerRef.current?.clearLayers();
-    },
-    enableDrawRect: () => {
-      const map = mapRef.current;
-      if (!map) return;
-      if (!drawLayerRef.current) {
-        drawLayerRef.current = new L.FeatureGroup();
-        map.addLayer(drawLayerRef.current);
-      }
-      drawLayerRef.current.clearLayers();
-      new L.Draw.Rectangle(map, {
-        shapeOptions: { color: "#6366f1", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
-      }).enable();
-    },
-    enableDrawPolygon: () => {
-      const map = mapRef.current;
-      if (!map) return;
-      if (!drawLayerRef.current) {
-        drawLayerRef.current = new L.FeatureGroup();
-        map.addLayer(drawLayerRef.current);
-      }
-      drawLayerRef.current.clearLayers();
-      new L.Draw.Polygon(map, {
-        shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
-        allowIntersection: false,
-      }).enable();
+      if (map) (map as L.Map & { _prevDrawMode?: DrawMode })._prevDrawMode = "none";
+      mapRef.current?.fire("draw:modechange");
     },
     invalidateSize: () => {
       const map = mapRef.current;
@@ -192,6 +148,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     rendererRef.current = L.canvas({ padding: 0.5 });
     markerLayerRef.current = L.layerGroup().addTo(map);
     polygonLayerRef.current = L.layerGroup().addTo(map);
+    drawLayerRef.current = new L.FeatureGroup().addTo(map);
     mapRef.current = map;
 
     return () => {
@@ -336,8 +293,61 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markers, autoFitDisabled, categoryColors, polygons]);
 
+  const DrawController = () => {
+    const map = mapRef.current;
+    const modeRef = useRef<DrawMode>("none");
+    const callbacksRef = useRef(drawCallbacksRef.current);
+
+    useEffect(() => {
+      modeRef.current = drawModeRef.current;
+      callbacksRef.current = drawCallbacksRef.current;
+    });
+
+    useEffect(() => {
+      if (!map || !drawLayerRef.current) return;
+
+      const handler = () => {
+        if (drawLayerRef.current) drawLayerRef.current.clearLayers();
+        const mode = modeRef.current;
+
+        let drawHandler: L.Draw.Rectangle | L.Draw.Polygon | null = null;
+
+        if (mode === "rectangle") {
+          drawHandler = new L.Draw.Rectangle(map, {
+            shapeOptions: { color: "#6366f1", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
+          });
+        } else if (mode === "polygon") {
+          drawHandler = new L.Draw.Polygon(map, {
+            shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
+            allowIntersection: false,
+          });
+        }
+
+        if (drawHandler) {
+          drawHandler.enable();
+          map.once("draw:created", (e: L.LeafletEvent) => {
+            const layer = (e as L.DrawEvents.Created).layer;
+            drawLayerRef.current!.addLayer(layer);
+            if (mode === "rectangle" && callbacksRef.current.rectDone) {
+              callbacksRef.current.rectDone((layer as L.Rectangle).getBounds());
+            } else if (mode === "polygon" && callbacksRef.current.polyDone) {
+              callbacksRef.current.polyDone((layer as L.Polygon).getLatLngs()[0] as L.LatLng[]);
+            }
+          });
+        }
+      };
+
+      map.on("draw:modechange", handler);
+      return () => { map.off("draw:modechange", handler); };
+    }, [map]);
+
+    return null;
+  };
+
   return (
-    <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />
+    <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }}>
+      <DrawController />
+    </div>
   );
 });
 
