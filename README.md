@@ -26,8 +26,9 @@
 - **OpenStreetMap 面域查询 / OSM Polygon Query** — 基于 Overpass API 查询建筑轮廓、城市功能区、行政边界
 - **POI 点位查询 / POI Point Query** — 支持 OSM、高德、百度三套数据源
   - **OSM (Overpass API)** — 查询 OSM node 数据，免费无 Key
-  - **高德 POI** — 精细 POI 分类，需高德 Web 服务 Key
+  - **高德 POI** — 精细 POI 分类（官方分类代码），需高德 Web 服务 Key
   - **百度 POI** — 精细 POI 分类，需百度浏览器端 AK
+- **坐标自动转换 / Coordinate Auto-transform** — 高德 GCJ-02 / 百度 BD-09 坐标自动转换为 WGS-84，确保与 GIS 软件无缝对接
 - **语义搜索 / Semantic Search** — 输入地名/POI/行政区名称，通过 Nominatim 定位后提取周边面域或 POI
 - **矩形框选 / Two-Click Rectangle** — 地图上点击两个对角顶点，自动成框并提取框内数据
 - **多边形绘制 / Polygon Drawing** — 自由绘制任意多边形，提取多边形内数据
@@ -97,12 +98,14 @@ src/
 │   ├── GeocodingPanel.tsx    # Tab A 坐标转换面板 | Tab A geocoding panel
 │   ├── AreaQueryPanel.tsx     # Tab B 面域/POI 提取面板 | Tab B extraction panel
 │   ├── ResultsSection.tsx      # 统一结果表格 | Unified results table
+│   ├── HelpDialog.tsx           # 新手引导对话框 | Onboarding help dialog
 │   └── ui/                   # shadcn/ui 组件库
 ├── hooks/
 │   ├── useGeocoding.ts        # 坐标转换 Hook | Geocoding hook
 │   └── useOverpassQuery.ts    # 面域/POI 查询 Hook | Overpass query hook
 ├── utils/
 │   ├── geocoding.ts           # 地理编码 + Overpass QL 查询 | Geocoding + Overpass QL
+│   ├── coordTransform.ts      # GCJ-02/BD-09 ⇄ WGS-84 坐标转换 | Coordinate transform
 │   └── exportUtils.ts         # 导出 CSV / GeoJSON / KML | Export utilities
 ├── i18n/
 │   └── locales/              # 翻译文件 zh.json / en.json
