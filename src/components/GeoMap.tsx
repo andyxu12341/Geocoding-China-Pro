@@ -57,6 +57,11 @@ const GEOQ_ATTR = '&copy; <a href="https://www.geoq.cn">智图科技</a>';
 
 const DEFAULT_MARKER_COLOR = "#6366f1";
 
+const RECT_COLOR = "#6366f1";
+const RECT_WEIGHT = 2;
+const RECT_FILL_OPACITY = 0.15;
+const TEMP_MARKER_COLOR = "#ef4444";
+
 export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, className, autoFitDisabled, categoryColors, polygons }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -64,26 +69,101 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   const polygonLayerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
   const drawLayerRef = useRef<L.FeatureGroup | null>(null);
-  const osmLayerRef = useRef<L.TileLayer | null>(null);
-  const darkLayerRef = useRef<L.TileLayer | null>(null);
   const legendRef = useRef<L.Control | null>(null);
+
   const drawModeRef = useRef<DrawMode>("none");
   const drawCallbacksRef = useRef<{
     rectDone: ((bounds: L.LatLngBounds) => void) | null;
     polyDone: ((latlngs: L.LatLng[]) => void) | null;
   }>({ rectDone: null, polyDone: null });
 
-  const onDrawModeChangeRef = useRef<(() => void) | null>(null);
+  const rectClicksRef = useRef<L.LatLng[]>([]);
+  const rectTempMarkerRef = useRef<L.CircleMarker | null>(null);
+  const rectClickHandlerRef = useRef<((e: L.LeafletMouseEvent) => void) | null>(null);
+
+  const polyHandlerRef = useRef<L.Draw.Polygon | null>(null);
+
+  const cleanupRectMode = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (rectClickHandlerRef.current) {
+      map.off("click", rectClickHandlerRef.current);
+      rectClickHandlerRef.current = null;
+    }
+    if (rectTempMarkerRef.current) {
+      map.removeLayer(rectTempMarkerRef.current);
+      rectTempMarkerRef.current = null;
+    }
+    rectClicksRef.current = [];
+    if (containerRef.current) {
+      containerRef.current.style.cursor = "";
+    }
+  }, []);
+
+  const setupRectClick = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !drawLayerRef.current) return;
+
+    cleanupRectMode();
+    if (containerRef.current) {
+      containerRef.current.style.cursor = "crosshair";
+    }
+
+    const handler = (e: L.LeafletMouseEvent) => {
+      const pts = rectClicksRef.current;
+      const clickPos = e.latlng;
+
+      if (pts.length === 0) {
+        pts.push(clickPos);
+
+        const marker = L.circleMarker(clickPos, {
+          radius: 6,
+          fillColor: TEMP_MARKER_COLOR,
+          color: "#ffffff",
+          weight: 2,
+          fillOpacity: 0.9,
+          interactive: false,
+        }).addTo(map);
+        rectTempMarkerRef.current = marker;
+        return;
+      }
+
+      const pointA = pts[0];
+      const pointB = clickPos;
+      const bounds = L.latLngBounds(pointA, pointB);
+
+      const rectLayer = L.rectangle(bounds, {
+        color: RECT_COLOR,
+        weight: RECT_WEIGHT,
+        fillOpacity: RECT_FILL_OPACITY,
+        fillColor: RECT_COLOR,
+      }).addTo(drawLayerRef.current!);
+
+      if (rectTempMarkerRef.current) {
+        map.removeLayer(rectTempMarkerRef.current);
+        rectTempMarkerRef.current = null;
+      }
+      rectClicksRef.current = [];
+
+      const cb = drawCallbacksRef.current;
+      if (cb.rectDone) cb.rectDone(bounds);
+    };
+
+    rectClickHandlerRef.current = handler;
+    map.on("click", handler);
+  }, [cleanupRectMode]);
 
   const applyDrawMode = useCallback(() => {
     const map = mapRef.current;
     if (!map || !drawLayerRef.current) return;
 
-    if (activeHandlerRef.current) {
-      try { activeHandlerRef.current.disable(); } catch {}
-      activeHandlerRef.current = null;
-    }
+    cleanupRectMode();
 
+    if (polyHandlerRef.current) {
+      try { polyHandlerRef.current.disable(); } catch {}
+      polyHandlerRef.current = null;
+    }
     drawLayerRef.current.clearLayers();
     map.off(L.Draw.Event.CREATED);
 
@@ -92,50 +172,37 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     if (mode === "none") return;
 
-    if (!callbacks.rectDone && !callbacks.polyDone) {
-      console.log("[GeoMap] applyDrawMode: no callback yet, skipping for mode:", mode);
+    if (mode === "rectangle") {
+      setupRectClick();
       return;
     }
 
-    if (mode === "rectangle") {
-      const handler = new L.Draw.Rectangle(map, {
-        shapeOptions: { color: "#6366f1", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
-      });
-      activeHandlerRef.current = handler;
-      handler.enable();
+    if (!callbacks.polyDone) return;
 
-      map.once(L.Draw.Event.CREATED, (e: L.LeafletEvent) => {
-        const layer = (e as L.DrawEvents.Created).layer;
-        if (drawLayerRef.current) {
-          drawLayerRef.current.addLayer(layer);
-          drawLayerRef.current.removeLayer(layer);
-        }
-        const cb = drawCallbacksRef.current;
-        if (cb.rectDone) cb.rectDone((layer as L.Rectangle).getBounds());
-      });
-    } else {
-      const handler = new L.Draw.Polygon(map, {
-        shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
-        allowIntersection: false,
-        showArea: false,
-        showLength: false,
-      });
-      activeHandlerRef.current = handler;
-      handler.enable();
+    const handler = new L.Draw.Polygon(map, {
+      shapeOptions: {
+        color: "#f59e0b",
+        weight: 3,
+        fillOpacity: 0.15,
+        dashArray: "6,4",
+      },
+      allowIntersection: false,
+      showArea: false,
+      showLength: false,
+    });
+    polyHandlerRef.current = handler;
+    handler.enable();
 
-      map.once(L.Draw.Event.CREATED, (e: L.LeafletEvent) => {
-        const layer = (e as L.DrawEvents.Created).layer;
-        if (drawLayerRef.current) {
-          drawLayerRef.current.addLayer(layer);
-          drawLayerRef.current.removeLayer(layer);
-        }
-        const cb = drawCallbacksRef.current;
-        if (cb.polyDone) cb.polyDone((layer as L.Polygon).getLatLngs()[0] as L.LatLng[]);
-      });
-    }
-  }, []);
-
-  const activeHandlerRef = useRef<L.Draw.Rectangle | L.Draw.Polygon | null>(null);
+    map.once(L.Draw.Event.CREATED, (e: L.LeafletEvent) => {
+      const layer = (e as L.DrawEvents.Created).layer;
+      if (drawLayerRef.current) {
+        drawLayerRef.current.addLayer(layer);
+        drawLayerRef.current.removeLayer(layer);
+      }
+      const cb = drawCallbacksRef.current;
+      if (cb.polyDone) cb.polyDone((layer as L.Polygon).getLatLngs()[0] as L.LatLng[]);
+    });
+  }, [cleanupRectMode, setupRectClick]);
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
@@ -179,9 +246,6 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     const tdtLayer = L.tileLayer.chinaProvider("TianDiTu.Normal.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
     const tdtSatLayer = L.tileLayer.chinaProvider("TianDiTu.Satellite.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
 
-    osmLayerRef.current = osmLayer;
-    darkLayerRef.current = darkLayer;
-
     gaodeLayer.addTo(map);
 
     L.control.layers(
@@ -209,9 +273,11 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     mapRef.current = map;
 
     return () => {
+      cleanupRectMode();
       map.remove();
       mapRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -250,7 +316,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     markers.forEach(m => {
       const fillColor = (m.category && colorMap.get(m.category)) || DEFAULT_MARKER_COLOR;
-      const cm = L.circleMarker([m.lat, m.lng], {
+      L.circleMarker([m.lat, m.lng], {
         renderer,
         radius: 5,
         fillColor,
@@ -264,10 +330,9 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
           `<div style="font-size:12px;color:#666">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>`,
           { closeButton: false }
         )
+        .on("mouseover", function (this: L.CircleMarker) { this.openPopup(); })
+        .on("mouseout", function (this: L.CircleMarker) { this.closePopup(); })
         .addTo(mLayer);
-
-      cm.on("mouseover", function (this: L.CircleMarker) { this.openPopup(); });
-      cm.on("mouseout", function (this: L.CircleMarker) { this.closePopup(); });
 
       latLngs.push([m.lat, m.lng]);
     });

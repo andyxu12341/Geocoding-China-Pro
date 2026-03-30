@@ -159,7 +159,7 @@
     "query": "查询",
     "startDrawRect": "在地图上绘制矩形",
     "startDrawPoly": "在地图上绘制多边形",
-    "drawRectHint": "请在右侧地图上拖拽绘制矩形范围",
+    "drawRectHint": "在地图上点击两个对角顶点，自动成框",
     "drawPolyHint": "请在右侧地图上点击绘制多边形（双击结束）",
     "viewportHint": "📍 将地图缩放/拖动到目标区域后点击「查询」按钮，将提取当前视野范围内的所有面数据",
     "rendered": "已在地图上渲染 {{count}} 个面数据"

@@ -159,7 +159,7 @@
     "query": "Query",
     "startDrawRect": "Draw Rectangle on Map",
     "startDrawPoly": "Draw Polygon on Map",
-    "drawRectHint": "Drag on the map to draw a rectangle",
+    "drawRectHint": "Click two diagonal corners on the map to create a rectangle",
     "drawPolyHint": "Click on the map to draw a polygon (double-click to finish)",
     "viewportHint": "📍 Pan/zoom the map to target area, then click Query to extract polygons in current view",
     "rendered": "Rendered {{count}} polygons on map"

@@ -224,7 +224,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
               className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground"
             >
               <Square className="inline h-3 w-3 mr-1" />
-              {t("areaQuery.viewportHint").replace("📍 ", "")} — {t("areaQuery.drawRectHint")}
+              {t("areaQuery.drawRectHint")}
             </motion.div>
           )}
 
