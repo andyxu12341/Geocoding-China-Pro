@@ -79,7 +79,7 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
 
   useEffect(() => {
     if (error) {
-      console.error("[AreaQuery]", error);
+      console.error("!!! [AreaQuery ERROR]", error);
       toast({ title: t("toast.areaError"), description: error, variant: "destructive" });
     }
   }, [error, toast, t]);
@@ -88,43 +88,57 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
   const apiKey = poiSource === "gaode" ? gaodeKey.trim() : poiSource === "baidu" ? baiduKey.trim() : undefined;
   const effectiveAreaType = (!isOsm && !areaType.startsWith("poi_")) ? "poi_all" : areaType;
 
-
   const handleQuery = async () => {
-    if (debounceRef.current) return;
-    debounceRef.current = setTimeout(() => { debounceRef.current = null; }, 800);
+    try {
+      console.log(">>> [AreaQueryPanel] 查询按钮已点击");
+      console.log(">>> [AreaQueryPanel] 当前状态 — mapSource:", mapSource, "poiSource:", poiSource, "apiKey:", apiKey ? `已配置(${apiKey.slice(0,4)}...)` : "未配置", "mode:", mode, "effectiveAreaType:", effectiveAreaType, "keyword:", keyword);
+      if (debounceRef.current) { console.log(">>> [AreaQueryPanel] 防抖跳过"); return; }
+      debounceRef.current = setTimeout(() => { debounceRef.current = null; }, 800);
 
-    if (mode === "semantic" && !keyword.trim()) {
-      toast({ title: t("toast.noKeyword"), variant: "destructive" });
-      return;
+      if (mode === "semantic" && !keyword.trim()) {
+        toast({ title: t("toast.noKeyword"), variant: "destructive" });
+        return;
+      }
+
+      if (mode === "rectangle") {
+        geoMapRef.current?.setDrawCallbacks(async (bounds) => {
+          const bbox: [number, number, number, number] = [
+            bounds.getSouth(), bounds.getWest(),
+            bounds.getNorth(), bounds.getEast(),
+          ];
+          console.log(">>> [AreaQueryPanel] rectangle 模式，bbox:", bbox);
+          const results = await fetchSpatial({ mode: "rectangle", areaType: effectiveAreaType, dataSource: poiSource, bbox, apiKey });
+          console.log(">>> [AreaQueryPanel] rectangle 结果:", results.length, "条");
+          onResults(results);
+          geoMapRef.current?.setDrawMode("none");
+        }, null);
+        geoMapRef.current?.setDrawMode("rectangle");
+        return;
+      }
+
+      if (mode === "polygon") {
+        geoMapRef.current?.setDrawCallbacks(null, async (latlngs) => {
+          const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
+          console.log(">>> [AreaQueryPanel] polygon 模式，顶点数:", latlngs.length);
+          const results = await fetchSpatial({ mode: "polygon", areaType: effectiveAreaType, dataSource: poiSource, polygonLatLngs, apiKey });
+          console.log(">>> [AreaQueryPanel] polygon 结果:", results.length, "条");
+          onResults(results);
+          geoMapRef.current?.setDrawMode("none");
+        });
+        geoMapRef.current?.setDrawMode("polygon");
+        return;
+      }
+
+      console.log(">>> [AreaQueryPanel] semantic 模式，调用 fetchSpatial...");
+      const results = await fetchSpatial({ mode: "semantic", areaType: effectiveAreaType, dataSource: poiSource, keyword: keyword.trim(), apiKey });
+      console.log(">>> [AreaQueryPanel] semantic 结果:", results.length, "条");
+      onResults(results);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("!!! [AreaQueryPanel CRASH]", err);
+      alert("!!! 系统崩溃: " + msg);
+      toast({ title: "系统错误", description: msg, variant: "destructive" });
     }
-
-    if (mode === "rectangle") {
-      geoMapRef.current?.setDrawCallbacks(async (bounds) => {
-        const bbox: [number, number, number, number] = [
-          bounds.getSouth(), bounds.getWest(),
-          bounds.getNorth(), bounds.getEast(),
-        ];
-        const results = await fetchSpatial({ mode: "rectangle", areaType: effectiveAreaType, dataSource: poiSource, bbox, apiKey });
-        onResults(results);
-        geoMapRef.current?.setDrawMode("none");
-      }, null);
-      geoMapRef.current?.setDrawMode("rectangle");
-      return;
-    }
-
-    if (mode === "polygon") {
-      geoMapRef.current?.setDrawCallbacks(null, async (latlngs) => {
-        const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
-        const results = await fetchSpatial({ mode: "polygon", areaType: effectiveAreaType, dataSource: poiSource, polygonLatLngs, apiKey });
-        onResults(results);
-        geoMapRef.current?.setDrawMode("none");
-      });
-      geoMapRef.current?.setDrawMode("polygon");
-      return;
-    }
-
-    const results = await fetchSpatial({ mode: "semantic", areaType: effectiveAreaType, dataSource: poiSource, keyword: keyword.trim(), apiKey });
-    onResults(results);
   };
 
 
