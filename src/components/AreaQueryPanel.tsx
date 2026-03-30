@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Search, Maximize2, Square, Pentagon, Loader2,
+  Download, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import {
   queryOSMArea,
@@ -18,6 +22,7 @@ import {
   type AreaResult,
   AREA_TYPE_LABELS,
 } from "@/utils/geocoding";
+import { exportPolygonGeoJSON, exportPolygonKML } from "@/utils/exportUtils";
 import type { GeoMapHandle } from "@/components/GeoMap";
 
 interface AreaQueryPanelProps {
@@ -60,6 +65,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const [keyword, setKeyword] = useState("");
   const [areaType, setAreaType] = useState<AreaQueryType>("building");
   const [isQuerying, setIsQuerying] = useState(false);
+  const [areaResults, setAreaResults] = useState<AreaResult[]>([]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,6 +105,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
         ];
         queryOSMArea("rectangle", areaType, { bbox })
           .then(results => {
+            setAreaResults(results);
             onResults(results);
             if (results.length === 0) {
               toast({ title: t("toast.areaNoResult"), variant: "destructive" });
@@ -120,6 +127,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
         const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
         queryOSMArea("polygon", areaType, { polygonLatLngs })
           .then(results => {
+            setAreaResults(results);
             onResults(results);
             if (results.length === 0) {
               toast({ title: t("toast.areaNoResult"), variant: "destructive" });
@@ -154,6 +162,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
         results = await queryOSMArea("viewport", areaType, { bbox });
       }
 
+      setAreaResults(results);
       onResults(results);
 
       if (results.length === 0) {
@@ -288,6 +297,30 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             mode === "polygon" ? <><Pentagon className="h-4 w-4" /> {t("areaQuery.startDrawPoly")}</> :
             <><Search className="h-4 w-4" /> {t("areaQuery.query")}</>}
         </Button>
+
+        <AnimatePresence>
+          {areaResults.length > 0 && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5">
+                      <Download className="h-4 w-4" /> {t("results.export")} <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onClick={() => exportPolygonGeoJSON(areaResults)}>
+                      🗺️ GeoJSON ({areaResults.length})
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportPolygonKML(areaResults)}>
+                      🌍 Google Earth (KML)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CardContent>
     </Card>
   );

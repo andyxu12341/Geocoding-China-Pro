@@ -70,8 +70,42 @@ export interface AreaResult {
   osmId: number;
   osmType: string;
   tags: Record<string, string>;
+  category?: string;
   polygon: number[][][];
   center?: { lat: number; lng: number };
+}
+
+export const AREA_CATEGORY_COLORS: Record<string, string> = {
+  residential: "#F5D0A9",
+  commercial: "#F78181",
+  retail: "#FA5858",
+  industrial: "#D8D8D8",
+  park: "#A9F5A9",
+  leisure: "#81F781",
+  school: "#F5A9E1",
+  university: "#F5A9E1",
+  hospital: "#F7819F",
+  cemetery: "#E8D8C8",
+  construction: "#BDBDBD",
+  water: "#82B1FF",
+  forest: "#388E3C",
+  farmland: "#E8F5E9",
+  military: "#8D6E63",
+  office: "#5C6BC0",
+  warehouse: "#78909C",
+  building: "#58ACFA",
+  default: "#A4A4A4",
+};
+
+export function getOSMCategory(tags: Record<string, string>): string {
+  return (
+    tags.landuse ||
+    tags.leisure ||
+    tags.amenity ||
+    tags.building ||
+    tags.boundary ||
+    "default"
+  );
 }
 
 export interface BatchProgress {
@@ -642,12 +676,14 @@ export async function queryOSMArea(
     if (polygon.length < 3) continue;
 
     const center = elementCenter(polygon);
+    const tags = el.tags || {};
     results.push({
       name: el.tags.name,
       type: areaType,
       osmId: el.id,
       osmType: el.type,
-      tags: el.tags || {},
+      tags,
+      category: getOSMCategory(tags),
       polygon: [polygon],
       center,
     });

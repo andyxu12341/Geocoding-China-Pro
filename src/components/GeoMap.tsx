@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.chinatmsproviders";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
+import { AREA_CATEGORY_COLORS } from "@/utils/geocoding";
 
 export interface MapMarker {
   lat: number;
@@ -14,9 +15,10 @@ export interface MapMarker {
 
 export interface MapPolygon {
   id: string;
-  rings: number[][][]; // [[[lng, lat], ...]]
+  rings: number[][][];
   label: string;
   tags?: Record<string, string>;
+  category?: string;
   osmId?: number;
   osmType?: string;
 }
@@ -65,8 +67,6 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
   const osmLayerRef = useRef<L.TileLayer | null>(null);
   const darkLayerRef = useRef<L.TileLayer | null>(null);
   const legendRef = useRef<L.Control | null>(null);
-
-  const POLYGON_COLORS = ["#e15759", "#4e79a7", "#59a14f", "#f28e2b", "#b07aa1", "#76b7b2", "#edc948", "#ff9da7"];
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
@@ -264,8 +264,10 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     });
 
     // Render polygons
-    polygons?.forEach((poly, i) => {
-      const color = POLYGON_COLORS[i % POLYGON_COLORS.length];
+    const seenCategories = new Set<string>();
+    polygons?.forEach((poly) => {
+      const cat = poly.category ?? "default";
+      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.default;
       poly.rings.forEach(ring => {
         const latLngRing: L.LatLngExpression[] = ring.map(c => [c[1], c[0]] as L.LatLngTuple);
         if (latLngRing.length < 3) return;
@@ -281,7 +283,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
           color,
           weight: 2,
           fillColor: color,
-          fillOpacity: 0.18,
+          fillOpacity: 0.3,
           interactive: true,
         })
           .bindPopup(
@@ -293,14 +295,15 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
         latLngs.push(latLngRing[0] as L.LatLngTuple);
       });
+      seenCategories.add(cat);
     });
 
-    // Add legend
+    // Add category legend
     const legendItems: { color: string; label: string }[] = [];
     categoryColors?.forEach(cc => legendItems.push({ color: cc.color, label: cc.category }));
-    polygons?.forEach((poly, i) => {
-      const color = POLYGON_COLORS[i % POLYGON_COLORS.length];
-      legendItems.push({ color, label: poly.label });
+    seenCategories.forEach(cat => {
+      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.default;
+      legendItems.push({ color, label: cat });
     });
 
     if (legendItems.length > 0) {

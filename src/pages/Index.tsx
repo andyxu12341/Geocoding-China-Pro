@@ -392,11 +392,12 @@ export default function Index() {
     }));
   }, [categoryValues, customColors]);
 
-  const mapPolygons: MapPolygon[] = areaResults.map((r, i) => ({
+  const mapPolygons: MapPolygon[] = areaResults.map((r) => ({
     id: `${r.osmId}`,
     rings: r.polygon,
     label: r.name,
     tags: r.tags,
+    category: r.category,
     osmId: r.osmId,
     osmType: r.osmType,
   }));
