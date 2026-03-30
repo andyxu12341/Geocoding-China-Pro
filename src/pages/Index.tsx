@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
+import { type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
+import { useGeocoding } from "@/hooks/useGeocoding";
 import { exportMapPNG } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
 
@@ -159,7 +160,6 @@ export default function Index() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const geoMapRef = useRef<GeoMapHandle>(null);
 
@@ -182,17 +182,10 @@ export default function Index() {
   const [categoryColumn, setCategoryColumn] = useState("");
   const [customColors, setCustomColors] = useState<Record<string, string>>({});
 
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [completed, setCompleted] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [elapsedMs, setElapsedMs] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Track abort/pause state to control toast/logical flow
-  const abortedRef = useRef(false);
-
-  const [results, setResults] = useState<GeocodeItem[]>([]);
-  const [isDone, setIsDone] = useState(false);
+  const geo = useGeocoding();
+  const results = geo.results;
+  const isDone = geo.isDone;
+  const { completed, total, elapsedMs, isProcessing } = geo;
 
   // Cancel dialog
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -425,14 +418,6 @@ export default function Index() {
   const keyMissing = (mapSource === "gaode" && !gaodeKey.trim()) || (mapSource === "baidu" && !baiduKey.trim());
   const canStart = !keyMissing && !isProcessing;
 
-  const startTimer = (t0: number) => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setElapsedMs(Date.now() - t0), 500);
-  };
-  const stopTimer = () => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -450,79 +435,7 @@ export default function Index() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const runGeocoding = async (addresses: string[], resumeResults: GeocodeItem[] = []) => {
-    const config: GeocodingConfig = {
-      source: mapSource,
-      gaodeKey: gaodeKey.trim() || undefined,
-      baiduKey: baiduKey.trim() || undefined,
-      regionFilter: regionFilter.trim() || undefined,
-    };
-
-    abortRef.current = new AbortController();
-    setResults(resumeResults);
-    setCompleted(resumeResults.length);
-    setTotal(resumeResults.length + addresses.length);
-    setIsDone(false);
-    setIsProcessing(true);
-    setAutoFitDisabled(false);
-    const t0 = Date.now();
-    setStartTime(t0);
-    setElapsedMs(0);
-    startTimer(t0);
-
-    try {
-      // Build optional address -> category mapping for export and UI
-      let addressToCategory: Map<string, string> | undefined;
-      if (categoryColumn && fileData.length > 0) {
-        addressToCategory = new globalThis.Map<string, string>();
-        fileData.forEach(row => {
-          const addr = row[selectedColumn]?.trim();
-          const cat = row[categoryColumn]?.trim();
-          if (addr && cat) addressToCategory.set(addr, cat);
-        });
-      }
-      const newResults = await geocodeBatch(
-        addresses, config,
-        (prog) => {
-          setCompleted(resumeResults.length + prog.completed);
-          if (prog.latestResult) {
-            if (addressToCategory?.has((prog.latestResult as GeocodeItem).address)) {
-              ;(prog.latestResult as GeocodeItem).category = addressToCategory.get((prog.latestResult as GeocodeItem).address)!;
-            }
-            setResults(prev => [...prev, prog.latestResult!]);
-          }
-        },
-        abortRef.current.signal,
-        addressToCategory,
-      );
-      setIsDone(true);
-      const all = [...resumeResults, ...newResults];
-      const sc = all.filter(r => r.status === "success").length;
-      const fc = all.filter(r => r.status === "failed").length;
-      if (!abortedRef.current) {
-        toast({ title: t("toast.conversionDone"), description: t("toast.successCount", { success: sc, failed: fc }) });
-        saveToHistory({
-          id: `h_${Date.now()}`,
-          ts: Date.now(),
-          source: mapSource,
-          regionFilter: regionFilter.trim(),
-          total: all.length,
-          success: sc,
-          failed: fc,
-          results: all,
-        });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : t("toast.unknownError");
-      toast({ title: t("toast.conversionInterrupted"), description: msg, variant: "destructive" });
-    } finally {
-      stopTimer();
-      setIsProcessing(false);
-    }
-  };
-
   const handleConvert = () => {
-    abortedRef.current = false;
     const addresses = resolveAddresses();
     if (addresses.length === 0) {
       toast({ title: t("toast.noAddress"), variant: "destructive" });
@@ -530,27 +443,56 @@ export default function Index() {
     }
     if (!canStart) return;
     setPendingAddresses(addresses);
-    runGeocoding(addresses);
+
+    let addressToCategory: Map<string, string> | undefined;
+    if (categoryColumn && fileData.length > 0) {
+      addressToCategory = new Map();
+      fileData.forEach(row => {
+        const addr = row[selectedColumn]?.trim();
+        const cat = row[categoryColumn]?.trim();
+        if (addr && cat) addressToCategory!.set(addr, cat);
+      });
+    }
+
+    const config: GeocodingConfig = {
+      source: mapSource,
+      gaodeKey: gaodeKey.trim() || undefined,
+      baiduKey: baiduKey.trim() || undefined,
+      regionFilter: regionFilter.trim() || undefined,
+    };
+
+    geo.startGeocoding(addresses, config, addressToCategory);
   };
 
   const handleStop = () => {
-    abortRef.current?.abort();
-    stopTimer();
-    setIsProcessing(false);
+    geo.stopGeocoding();
     setShowCancelDialog(true);
-    abortedRef.current = true;
   };
 
   const handleResume = () => {
     setShowCancelDialog(false);
     const processedAddrs = new Set(results.map(r => r.address));
     const remaining = pendingAddresses.filter(a => !processedAddrs.has(a));
-    if (remaining.length === 0) {
-      setIsDone(true);
-      return;
+    if (remaining.length === 0) return;
+
+    let addressToCategory: Map<string, string> | undefined;
+    if (categoryColumn && fileData.length > 0) {
+      addressToCategory = new Map();
+      fileData.forEach(row => {
+        const addr = row[selectedColumn]?.trim();
+        const cat = row[categoryColumn]?.trim();
+        if (addr && cat) addressToCategory!.set(addr, cat);
+      });
     }
-    abortedRef.current = false;
-    runGeocoding(remaining, results);
+
+    const config: GeocodingConfig = {
+      source: mapSource,
+      gaodeKey: gaodeKey.trim() || undefined,
+      baiduKey: baiduKey.trim() || undefined,
+      regionFilter: regionFilter.trim() || undefined,
+    };
+
+    geo.startGeocoding(remaining, config, addressToCategory);
   };
 
   const handleConfirmCancel = () => {
@@ -858,7 +800,7 @@ export default function Index() {
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">{completed} / {total}{eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}</span>
                   </div>
-                  <Progress value={progress} className="h-1.5" />
+                  <Progress value={geo.results.length > 0 && total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0} className="h-1.5" />
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     <StatsCard title={t("progress.total")} value={total} icon={<Map className="h-4 w-4" />} color="blue" />
                     <StatsCard title={t("progress.success")} value={successCount} icon={<CheckCircle2 className="h-4 w-4" />} color="emerald" />
