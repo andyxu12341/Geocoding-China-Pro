@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 import type { GeocodeItem, AreaResult } from "@/utils/geocoding";
-import { AREA_CATEGORY_LABELS } from "@/utils/geocoding";
 import {
   exportCSV, exportGeoJSON, exportKML,
   exportPolygonCSV, exportPolygonGeoJSON, exportPolygonKML,
@@ -139,7 +138,7 @@ export function ResultsSection({
                         <TableCell className="max-w-xs truncate font-medium">{r.name || "未命名"}</TableCell>
                         <TableCell className="whitespace-nowrap">
                           <Badge variant="outline" className="text-xs">
-                            {AREA_CATEGORY_LABELS[r.category ?? "other"] ?? "其他设施"}
+                            {r.categoryName}
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{r.osmId}</TableCell>

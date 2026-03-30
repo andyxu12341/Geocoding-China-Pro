@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.chinatmsproviders";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
-import { AREA_CATEGORY_COLORS, AREA_CATEGORY_LABELS } from "@/utils/geocoding";
+import { LANDUSE_STANDARD_MAP } from "@/utils/geocoding";
 
 type DrawMode = "none" | "rectangle" | "polygon";
 
@@ -20,7 +20,8 @@ export interface MapPolygon {
   rings: number[][][];
   label: string;
   tags?: Record<string, string>;
-  category?: string;
+  color: string;
+  categoryName: string;
   osmId?: number;
   osmType?: string;
 }
@@ -339,8 +340,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     const seenCategories = new Set<string>();
     polygons?.forEach((poly) => {
-      const cat = poly.category ?? "other";
-      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.other;
+      const color = poly.color || "#E0E0E0";
       poly.rings.forEach(ring => {
         const latLngRing: L.LatLngExpression[] = ring.map(c => [c[1], c[0]] as L.LatLngTuple);
         if (latLngRing.length < 3) return;
@@ -356,7 +356,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
           color,
           weight: 2,
           fillColor: color,
-          fillOpacity: 0.3,
+          fillOpacity: 0.35,
           interactive: true,
         })
           .bindPopup(
@@ -368,15 +368,13 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
         latLngs.push(latLngRing[0] as L.LatLngTuple);
       });
-      seenCategories.add(cat);
+      seenCategories.add(poly.categoryName);
     });
 
     const legendItems: { color: string; label: string }[] = [];
     categoryColors?.forEach(cc => legendItems.push({ color: cc.color, label: cc.category }));
-    seenCategories.forEach(cat => {
-      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.other;
-      const label = AREA_CATEGORY_LABELS[cat] ?? "其他设施";
-      legendItems.push({ color, label });
+    seenCategories.forEach(name => {
+      legendItems.push({ color: "#E0E0E0", label: name });
     });
 
     if (legendItems.length > 0) {

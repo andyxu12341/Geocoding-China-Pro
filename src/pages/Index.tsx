@@ -386,7 +386,8 @@ export default function Index() {
     rings: r.polygon,
     label: r.name,
     tags: r.tags,
-    category: r.category,
+    color: r.color,
+    categoryName: r.categoryName,
     osmId: r.osmId,
     osmType: r.osmType,
   }));

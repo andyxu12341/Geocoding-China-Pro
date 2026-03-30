@@ -64,61 +64,149 @@ export interface AreaResult {
   osmId: number;
   osmType: string;
   tags: Record<string, string>;
-  category?: string;
+  categoryName: string;
+  color: string;
   polygon: number[][][];
   center?: { lat: number; lng: number };
 }
 
-export const AREA_CATEGORY_COLORS: Record<string, string> = {
-  residential: "#60A5FA",
-  commercial: "#F87171",
-  office: "#FB923C",
-  education: "#A78BFA",
-  medical: "#F472B6",
-  public: "#34D399",
-  religious: "#FBBF24",
-  park: "#4ADE80",
-  other: "#9CA3AF",
+export const LANDUSE_STANDARD_MAP: Record<string, { name: string; color: string }> = {
+  farmland: { name: "01 耕地", color: "#F5F8DC" },
+  orchard: { name: "02 园地", color: "#BFE9AA" },
+  vineyard: { name: "02 园地", color: "#BFE9AA" },
+  wood: { name: "0301 乔木林地", color: "#68B167" },
+  forest: { name: "03 林地", color: "#68B167" },
+  grassland: { name: "0401 天然牧草地", color: "#83C238" },
+  meadow: { name: "04 草地", color: "#83C238" },
+  residential: { name: "0701 城镇住宅用地", color: "#FFFF2D" },
+  apartments: { name: "0702 城镇住宅用地（公寓）", color: "#FFE600" },
+  detached: { name: "0703 城镇住宅用地（独立住宅）", color: "#FFD700" },
+  administrative: { name: "0801 机关团体用地", color: "#EB46DA" },
+  public_building: { name: "0801 机关团体用地", color: "#EB46DA" },
+  research_institute: { name: "0802 科研用地", color: "#F0005C" },
+  library: { name: "0803 文化用地", color: "#FF7F00" },
+  theatre: { name: "0803 文化用地", color: "#FF7F00" },
+  museum: { name: "0803 文化用地", color: "#FF7F00" },
+  school: { name: "0804 教育用地", color: "#FF85C9" },
+  university: { name: "0804 教育用地", color: "#FF85C9" },
+  college: { name: "0804 教育用地", color: "#FF85C9" },
+  kindergarten: { name: "0804 教育用地", color: "#FF85C9" },
+  pitch: { name: "0805 体育用地", color: "#00A57C" },
+  sports_centre: { name: "0805 体育用地", color: "#00A57C" },
+  stadium: { name: "0805 体育用地", color: "#00A57C" },
+  hospital: { name: "0806 医疗卫生用地", color: "#FF7F7E" },
+  clinic: { name: "0806 医疗卫生用地", color: "#FF7F7E" },
+  doctors: { name: "0806 医疗卫生用地", color: "#FF7F7E" },
+  pharmacy: { name: "0806 医疗卫生用地", color: "#FF7F7E" },
+  social_facility: { name: "0807 社会福利用地", color: "#FF9F7F" },
+  nursing_home: { name: "0807 社会福利用地", color: "#FF9F7F" },
+  place_of_worship: { name: "1503 宗教用地", color: "#CC0066" },
+  institutional: { name: "08 公共管理与公共服务用地", color: "#EB46DA" },
+  retail: { name: "0901 商业用地", color: "#FF0000" },
+  mall: { name: "0901 商业用地", color: "#FF0000" },
+  commercial: { name: "0901 商业用地", color: "#FF0000" },
+  restaurant: { name: "0901 商业用地（餐饮）", color: "#E53935" },
+  cafe: { name: "0901 商业用地（餐饮）", color: "#E53935" },
+  bank: { name: "0902 商务金融用地", color: "#C00000" },
+  office: { name: "0902 商务金融用地", color: "#C00000" },
+  hotel: { name: "0904 其他商业服务业用地", color: "#91372A" },
+  industrial: { name: "1001 工业用地", color: "#BB9674" },
+  quarry: { name: "1002 采矿用地", color: "#9E6C54" },
+  depot: { name: "1101 物流仓储用地", color: "#8761D3" },
+  warehouse: { name: "1101 物流仓储用地", color: "#8761D3" },
+  railway: { name: "1201 铁路用地", color: "#595959" },
+  train_station: { name: "1201 铁路用地", color: "#595959" },
+  highway: { name: "1202 公路用地", color: "#ADADAD" },
+  airport: { name: "1203 机场用地", color: "#B7B7B7" },
+  parking: { name: "1208 交通场站用地", color: "#D9D9D9" },
+  bus_station: { name: "1208 交通场站用地", color: "#D9D9D9" },
+  park: { name: "1401 公园绿地", color: "#00FF00" },
+  garden: { name: "1401 公园绿地", color: "#00FF00" },
+  square: { name: "1403 广场用地", color: "#ACFFCF" },
+  grass: { name: "14 绿地与开敞空间用地", color: "#00FF00" },
+  military: { name: "1501 军事设施用地", color: "#859156" },
+  cemetery: { name: "1506 殡葬用地", color: "#4F7E3E" },
+  grave_yard: { name: "1506 殡葬用地", color: "#4F7E3E" },
+  water: { name: "1701 河流水面", color: "#338EC0" },
+  river: { name: "1701 河流水面", color: "#338EC0" },
+  stream: { name: "1701 河流水面", color: "#338EC0" },
+  canal: { name: "1705 沟渠", color: "#9ABCE2" },
+  construction: { name: "其他用地（在建）", color: "#E0E0E0" },
+  default: { name: "其他用地（未匹配分类）", color: "#E0E0E0" },
 };
 
-export const AREA_CATEGORY_LABELS: Record<string, string> = {
-  residential: "住宅与一般建筑",
-  commercial: "商业服务",
-  office: "办公与工业",
-  education: "教育科研",
-  medical: "医疗卫生",
-  public: "公共设施",
-  religious: "宗教设施",
-  park: "公园绿地",
-  other: "其他设施",
+const BUILDING_NAME_MAP: Record<string, string> = {
+  yes: "未分类/未标注",
+  apartments: "公寓建筑",
+  detached: "独立住宅",
+  house: "独户住宅",
+  residential: "住宅建筑",
+  commercial: "商业建筑",
+  retail: "商业建筑（零售）",
+  office: "办公建筑",
+  industrial: "工业建筑",
+  warehouse: "仓储建筑",
+  school: "学校建筑",
+  university: "大学建筑",
+  hospital: "医院建筑",
+  clinic: "诊所建筑",
+  hotel: "酒店建筑",
+  mosque: "清真寺",
+  church: "教堂",
+  temple: "寺庙",
+  synagogue: "犹太教堂",
+  public: "公共建筑",
+  government: "政府建筑",
+  train_station: "火车站建筑",
+  airport: "机场建筑",
+  stadium: "体育场建筑",
+  supermarket: "超市建筑",
+  cinema: "电影院",
 };
 
-export function getOSMCategory(tags: Record<string, string>): string {
-  const raw =
-    tags.landuse ||
-    tags.leisure ||
-    tags.amenity ||
-    tags.building ||
-    tags.boundary ||
-    "other";
+export function getStandardizedTags(tags: Record<string, string>, queryType: AreaQueryType): { categoryName: string; color: string } {
+  if (queryType === "building") {
+    const bType = tags.building;
+    if (!bType || bType === "yes" || bType === "no") {
+      return { categoryName: "未分类/未标注", color: "#A9A9A9" };
+    }
+    const displayName = BUILDING_NAME_MAP[bType] || bType;
+    const mapped = LANDUSE_STANDARD_MAP[bType];
+    return {
+      categoryName: displayName,
+      color: mapped?.color || "#A9A9A9",
+    };
+  }
 
-  if (raw === "no" || raw === "yes" || !raw) return "other";
+  if (queryType === "landuse") {
+    const specificTag =
+      tags.amenity || tags.leisure || tags.shop || tags.military ||
+      tags.building || tags.railway || tags.highway || tags.natural ||
+      tags.waterway || tags.aeroway;
+    const baseLanduse = tags.landuse || tags.natural || tags.waterway || "";
 
-  if (["residential", "apartments", "house", "detached", "terrace"].includes(raw)) return "residential";
-  if (["commercial", "retail", "bank", "restaurant", "cafe", "bar", "fast_food", "food_court", "cinema", "theatre", "nightclub", "casino", "shop", "supermarket"].includes(raw)) return "commercial";
-  if (["office", "industrial", "warehouse", "manufacture"].includes(raw)) return "office";
-  if (["university", "school", "college", "kindergarten", "library", "bookshop", "driving_school"].includes(raw)) return "education";
-  if (["hospital", "clinic", "doctors", "pharmacy", "dentist", "veterinary", "social_facility", "nursing_home"].includes(raw)) return "medical";
-  if (["police", "government", "public_building", "courthouse", "prison", "fire_station", "post_office"].includes(raw)) return "public";
-  if (["place_of_worship"].includes(raw)) return "religious";
-  if (["park", "pitch", "playground", "track", "sports_centre", "swimming_pool", "leisure"].includes(raw)) return "park";
-  if (["cemetery", "grave_yard"].includes(raw)) return "other";
-  if (["construction"].includes(raw)) return "other";
-  if (["water", "river", "lake", "pond", "reservoir", "stream", "wetland"].includes(raw)) return "other";
-  if (["forest", "farmland", "grass", "meadow", "orchard", "vineyard"].includes(raw)) return "park";
-  if (["military"].includes(raw)) return "other";
+    const mapped = LANDUSE_STANDARD_MAP[specificTag] ||
+                   LANDUSE_STANDARD_MAP[baseLanduse] ||
+                   LANDUSE_STANDARD_MAP.default;
 
-  return "other";
+    return { categoryName: mapped.name, color: mapped.color };
+  }
+
+  if (queryType === "all") {
+    const specificTag =
+      tags.amenity || tags.leisure || tags.shop || tags.military ||
+      tags.landuse || tags.natural || tags.waterway || tags.building ||
+      tags.railway || tags.aeroway;
+
+    const mapped = LANDUSE_STANDARD_MAP[specificTag] || LANDUSE_STANDARD_MAP.default;
+    return { categoryName: mapped.name, color: mapped.color };
+  }
+
+  if (queryType === "admin") {
+    return { categoryName: "行政边界", color: "#595959" };
+  }
+
+  return { categoryName: "其他用地（未匹配分类）", color: "#E0E0E0" };
 }
 
 export interface BatchProgress {
@@ -809,6 +897,7 @@ export async function queryOSMArea(
       "";
     if (raw === "no") continue;
 
+    const { categoryName, color } = getStandardizedTags(tags, areaType);
     const center = elementCenter(polygons[0]);
     results.push({
       name: el.tags.name,
@@ -816,7 +905,8 @@ export async function queryOSMArea(
       osmId: el.id,
       osmType: el.type,
       tags,
-      category: getOSMCategory(tags),
+      categoryName,
+      color,
       polygon: polygons,
       center,
     });
