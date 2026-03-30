@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useOverpassQuery } from "@/hooks/useOverpassQuery";
 import {
-  queryOSMArea,
   type AreaQueryType,
   type AreaQueryMode,
   AREA_TYPE_LABELS,
@@ -54,11 +54,11 @@ const MODE_OPTIONS: { value: AreaQueryMode; labelKey: string; hintKey: string; i
 export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { fetchPolygons, isLoading } = useOverpassQuery();
 
   const [mode, setMode] = useState<AreaQueryMode>("semantic");
   const [keyword, setKeyword] = useState("");
   const [areaType, setAreaType] = useState<AreaQueryType>("building");
-  const [isQuerying, setIsQuerying] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,7 +72,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
     }
   }, [mode, geoMapRef]);
 
-  const handleQuery = async () => {
+  const handleQuery = () => {
     if (debounceRef.current) return;
     debounceRef.current = setTimeout(() => { debounceRef.current = null; }, 800);
 
@@ -91,27 +91,16 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
 
     if (mode === "rectangle") {
       geoMapRef.current?.setDrawCallbacks(
-        (bounds) => {
-          setIsQuerying(true);
+        async (bounds) => {
           const bbox: [number, number, number, number] = [
             bounds.getSouth(),
             bounds.getWest(),
             bounds.getNorth(),
             bounds.getEast(),
           ];
-          queryOSMArea("rectangle", areaType, { bbox })
-            .then(results => {
-              onResults(results);
-              if (results.length === 0) {
-                toast({ title: t("toast.areaNoResult"), variant: "destructive" });
-              } else {
-                toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
-              }
-            })
-            .catch(err => {
-              toast({ title: t("toast.areaQueryFail"), description: err instanceof Error ? err.message : "", variant: "destructive" });
-            })
-            .finally(() => { setIsQuerying(false); geoMapRef.current?.setDrawMode("none"); });
+          const results = await fetchPolygons("rectangle", areaType, { bbox });
+          onResults(results);
+          geoMapRef.current?.setDrawMode("none");
         },
         null
       );
@@ -122,63 +111,36 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
     if (mode === "polygon") {
       geoMapRef.current?.setDrawCallbacks(
         null,
-        (latlngs) => {
-          setIsQuerying(true);
+        async (latlngs) => {
           const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
-          queryOSMArea("polygon", areaType, { polygonLatLngs })
-            .then(results => {
-              onResults(results);
-              if (results.length === 0) {
-                toast({ title: t("toast.areaNoResult"), variant: "destructive" });
-              } else {
-                toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
-              }
-            })
-            .catch(err => {
-              toast({ title: t("toast.areaQueryFail"), description: err instanceof Error ? err.message : "", variant: "destructive" });
-            })
-            .finally(() => { setIsQuerying(false); geoMapRef.current?.setDrawMode("none"); });
+          const results = await fetchPolygons("polygon", areaType, { polygonLatLngs });
+          onResults(results);
+          geoMapRef.current?.setDrawMode("none");
         }
       );
       geoMapRef.current?.setDrawMode("polygon");
       return;
     }
 
-    setIsQuerying(true);
-
-    try {
-      let results: AreaResult[];
-
+    const runQuery = async () => {
       if (mode === "semantic") {
-        results = await queryOSMArea("semantic", areaType, { keyword: keyword.trim() });
+        const results = await fetchPolygons("semantic", areaType, { keyword: keyword.trim() });
+        onResults(results);
       } else {
         const bounds = geoMapRef.current?.getBounds();
-        if (!bounds) throw new Error("无法获取地图边界");
+        if (!bounds) return;
         const bbox: [number, number, number, number] = [
           bounds.getSouth(),
           bounds.getWest(),
           bounds.getNorth(),
           bounds.getEast(),
         ];
-        results = await queryOSMArea("viewport", areaType, { bbox });
+        const results = await fetchPolygons("viewport", areaType, { bbox });
+        onResults(results);
       }
+    };
 
-      onResults(results);
-
-      if (results.length === 0) {
-        toast({ title: t("toast.areaNoResult"), description: t("toast.areaNoResultHint", { keyword: keyword }) });
-      } else {
-        toast({ title: t("toast.areaQueryDone", { count: results.length }), description: t("toast.areaQueryType", { type: AREA_TYPE_LABELS[areaType] }) });
-      }
-    } catch (err) {
-      toast({
-        title: t("toast.areaQueryFail"),
-        description: err instanceof Error ? err.message : t("toast.areaQueryFail"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsQuerying(false);
-    }
+    runQuery();
   };
 
   return (
@@ -287,10 +249,10 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
 
         <Button
           onClick={handleQuery}
-          disabled={isQuerying}
+          disabled={isLoading}
           className="w-full gap-1.5"
         >
-          {isQuerying ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("toast.areaQuery")}...</> :
+          {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("toast.areaQuery")}...</> :
             mode === "rectangle" ? <><Square className="h-4 w-4" /> {t("areaQuery.startDrawRect")}</> :
             mode === "polygon" ? <><Pentagon className="h-4 w-4" /> {t("areaQuery.startDrawPoly")}</> :
             <><Search className="h-4 w-4" /> {t("areaQuery.query")}</>}
