@@ -6,31 +6,26 @@ import * as XLSX from "xlsx";
 import {
   MapPin, Key, Eye, EyeOff, UploadCloud, FileText,
   Play, Download, CheckCircle2, XCircle, Loader2,
-  Map, Settings, StopCircle, ChevronDown, Copy, Sun, Moon, History, Trash2, RotateCcw, Clock,
+  Map, Settings, StopCircle, Copy, Sun, Moon, History, Trash2, RotateCcw, Clock,
 } from "lucide-react";
 import { AreaQueryPanel } from "@/components/AreaQueryPanel";
+import { ResultsSection } from "@/components/ResultsSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate, AREA_CATEGORY_LABELS } from "@/utils/geocoding";
-import { exportCSV, exportGeoJSON, exportKML, exportMapPNG, exportPolygonGeoJSON, exportPolygonKML, exportPolygonCSV } from "@/utils/exportUtils";
+import { geocodeBatch, type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
+import { exportMapPNG } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
 
 const DEMO_ADDRESSES = "北京故宫\n上海东方明珠\n广州塔\n深圳平安金融中心\n成都大熊猫繁育研究基地";
@@ -875,133 +870,14 @@ export default function Index() {
           )}
         </AnimatePresence>
 
-        {/* Results Table + Export — unified for both tabs */}
-        <AnimatePresence>
-          {(results.length > 0 || areaResults.length > 0) && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 w-full overflow-hidden">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      {t("results.title")}
-                      <Badge variant="secondary" className="ml-1">
-                        {appMode === "geocoding" ? results.length : areaResults.length} {t("stats.tooltipCount")}
-                      </Badge>
-                    </CardTitle>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                          <Download className="h-4 w-4" /> {t("results.export")} <ChevronDown className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {appMode === "geocoding" ? (
-                          <>
-                            <DropdownMenuItem onClick={() => exportCSV(results)}>📄 {t("results.exportCSV")}</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportGeoJSON(results)}>🗺️ {t("results.exportGeoJSON")}</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportKML(results)}>📍 {t("results.exportKML")}</DropdownMenuItem>
-                          </>
-                        ) : (
-                          <>
-                            <DropdownMenuItem onClick={() => exportPolygonCSV(areaResults)}>📄 CSV</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportPolygonGeoJSON(areaResults)}>🗺️ GeoJSON</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportPolygonKML(areaResults)}>🌍 Google Earth (KML)</DropdownMenuItem>
-                          </>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={handleExportPNG}>🖼️ {t("results.exportPNG")}</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent className="min-w-0 overflow-hidden">
-                  {appMode === "geocoding" ? (
-                    <Table
-                      className="w-full whitespace-nowrap text-left text-sm"
-                      containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[500px] border rounded-md"
-                    >
-                      <TableHeader className="sticky top-0 z-10 bg-card">
-                        <TableRow>
-                          <TableHead className="max-w-xs truncate whitespace-nowrap">{t("results.address")}</TableHead>
-                          <TableHead className="whitespace-nowrap">{t("results.lng")}</TableHead>
-                          <TableHead className="whitespace-nowrap">{t("results.lat")}</TableHead>
-                          <TableHead className="max-w-sm truncate whitespace-nowrap">{t("results.formatted")}</TableHead>
-                          <TableHead className="whitespace-nowrap">{t("results.category")}</TableHead>
-                          <TableHead className="whitespace-nowrap">{t("results.status")}</TableHead>
-                          <TableHead className="w-[60px] whitespace-nowrap">{t("results.action")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {results.map((r, i) => (
-                          <TableRow key={i}>
-                            <TableCell className="max-w-xs truncate whitespace-nowrap font-medium">{r.address}</TableCell>
-                            <TableCell className="whitespace-nowrap font-mono text-xs">{r.lng ?? "-"}</TableCell>
-                            <TableCell className="whitespace-nowrap font-mono text-xs">{r.lat ?? "-"}</TableCell>
-                            <TableCell className="max-w-sm truncate whitespace-nowrap text-xs text-muted-foreground">{r.formattedAddress ?? "-"}</TableCell>
-                            <TableCell className="whitespace-nowrap text-xs">{r.category ? <Badge variant="outline" className="text-xs">{r.category}</Badge> : "-"}</TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {r.status === "success" ? (
-                                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">{t("progress.success")}</Badge>
-                              ) : (
-                                <Badge variant="destructive" className="text-xs">{r.error || t("progress.failed")}</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {r.status === "success" && r.candidates && r.candidates.length > 1 && (
-                                <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setCandidateDialog({ address: r.address, candidates: r.candidates! })}>
-                                  <MapPin className="h-3 w-3" /> {t("results.select")}
-                                </Button>
-                              )}
-                              {r.status === "success" && (!r.candidates || r.candidates.length <= 1) && (
-                                <button onClick={() => handleCopyCoords(r)} className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("results.copyCoords")}>
-                                  <Copy className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <Table
-                      className="w-full whitespace-nowrap text-left text-sm"
-                      containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[500px] border rounded-md"
-                    >
-                      <TableHeader className="sticky top-0 z-10 bg-card">
-                        <TableRow>
-                          <TableHead className="whitespace-nowrap">名称</TableHead>
-                          <TableHead className="whitespace-nowrap">类别</TableHead>
-                          <TableHead className="whitespace-nowrap">OSM ID</TableHead>
-                          <TableHead className="whitespace-nowrap">中心点</TableHead>
-                          <TableHead className="max-w-xs truncate whitespace-nowrap">标签</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {areaResults.map((r) => (
-                          <TableRow key={r.osmId}>
-                            <TableCell className="max-w-xs truncate font-medium">{r.name || "未命名"}</TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              <Badge variant="outline" className="text-xs">
-                                {AREA_CATEGORY_LABELS[r.category ?? "other"] ?? "其他设施"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{r.osmId}</TableCell>
-                            <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                              {r.center ? `${r.center.lat.toFixed(5)}, ${r.center.lng.toFixed(5)}` : "—"}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-                              {Object.entries(r.tags).slice(0, 3).map(([k, v]) => `${k}:${v}`).join(", ")}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <ResultsSection
+          appMode={appMode}
+          results={results}
+          areaResults={areaResults}
+          onExportPNG={handleExportPNG}
+          onCopyCoords={handleCopyCoords}
+          onSelectCandidate={(address, candidates) => setCandidateDialog({ address, candidates })}
+        />
       </div>
 
       {/* Candidate Selection Dialog */}
