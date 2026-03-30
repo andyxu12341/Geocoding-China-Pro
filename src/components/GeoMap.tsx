@@ -117,6 +117,8 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
       const handler = new L.Draw.Polygon(map, {
         shapeOptions: { color: "#f59e0b", weight: 3, fillOpacity: 0.15, dashArray: "6,4" },
         allowIntersection: false,
+        showArea: false,
+        showLength: false,
       });
       activeHandlerRef.current = handler;
       handler.enable();
