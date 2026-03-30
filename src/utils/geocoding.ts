@@ -520,12 +520,14 @@ interface OverpassResponse {
 interface NominatimPlace {
   lat: string;
   lon: string;
-  boundingbox?: [string, string, string, string]; // [south, north, west, east]
+  osm_id?: string;
+  osm_type?: string;
+  boundingbox?: [string, string, string, string];
   display_name: string;
 }
 
 async function searchNominatim(keyword: string, signal?: AbortSignal): Promise<NominatimPlace | null> {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(keyword)}&format=json&limit=1&addressdetails=0`;
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(keyword)}&format=json&limit=1&addressdetails=1`;
   const res = await fetch(url, {
     headers: {
       "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -536,6 +538,14 @@ async function searchNominatim(keyword: string, signal?: AbortSignal): Promise<N
   if (!res.ok) return null;
   const data = await res.json() as NominatimPlace[];
   return data.length > 0 ? data[0] : null;
+}
+
+function osmToAreaId(osmType: string, osmId: string): string {
+  const id = parseInt(osmId, 10);
+  if (osmType === "R") return String(3600000000 + id);
+  if (osmType === "W") return String(2400000000 + id);
+  if (osmType === "N") return String(1200000000 + id);
+  return String(id);
 }
 
 function expandBbox(bbox: [string, string, string, string], factor = 0.05): [number, number, number, number] {
@@ -553,7 +563,12 @@ function expandBbox(bbox: [string, string, string, string], factor = 0.05): [num
 function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(areaType);
-  return `[out:json][timeout:50];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out geom;`;
+  return `[out:json][timeout:900];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out geom;`;
+}
+
+function buildAreaOverpassQuery(areaId: string, areaType: AreaQueryType): string {
+  const filter = getAreaTypeFilter(areaType, `area(${areaId})`);
+  return `[out:json][timeout:900];(${filter});out geom;`;
 }
 
 function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): string {
@@ -600,12 +615,14 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): s
       ].join("");
     case "admin":
       return [
+        `relation["boundary"="administrative"]["admin_level"="2"](${areaRef});`,
+        `relation["boundary"="administrative"]["admin_level"="4"](${areaRef});`,
         `relation["boundary"="administrative"]["admin_level"="6"](${areaRef});`,
         `relation["boundary"="administrative"]["admin_level"="8"](${areaRef});`,
-        `relation["boundary"="administrative"]["admin_level"="10"](${areaRef});`,
+        `way["boundary"="administrative"]["admin_level"="2"](${areaRef});`,
+        `way["boundary"="administrative"]["admin_level"="4"](${areaRef});`,
         `way["boundary"="administrative"]["admin_level"="6"](${areaRef});`,
         `way["boundary"="administrative"]["admin_level"="8"](${areaRef});`,
-        `way["boundary"="administrative"]["admin_level"="10"](${areaRef});`,
       ].join("");
   }
 }
@@ -613,13 +630,13 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): s
 function buildBboxOverpassQuery(bbox: [number, number, number, number], type: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(type);
-  return `[out:json][timeout:50];(${filter});out geom;`;
+  return `[out:json][timeout:900];(${filter});out geom;`;
 }
 
 function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryType): string {
   const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
   const filter = getAreaPolyFilter(type);
-  return `[out:json][timeout:50];(poly:"${polyStr}";${filter});out geom;`;
+  return `[out:json][timeout:900];(poly:"${polyStr}";${filter});out geom;`;
 }
 
 function getAreaPolyFilter(type: AreaQueryType): string {
@@ -666,12 +683,14 @@ function getAreaPolyFilter(type: AreaQueryType): string {
       ].join("");
     case "admin":
       return [
+        `relation["boundary"="administrative"]["admin_level"="2"];`,
+        `relation["boundary"="administrative"]["admin_level"="4"];`,
         `relation["boundary"="administrative"]["admin_level"="6"];`,
         `relation["boundary"="administrative"]["admin_level"="8"];`,
-        `relation["boundary"="administrative"]["admin_level"="10"];`,
+        `way["boundary"="administrative"]["admin_level"="2"];`,
+        `way["boundary"="administrative"]["admin_level"="4"];`,
         `way["boundary"="administrative"]["admin_level"="6"];`,
         `way["boundary"="administrative"]["admin_level"="8"];`,
-        `way["boundary"="administrative"]["admin_level"="10"];`,
       ].join("");
   }
 }
@@ -696,11 +715,18 @@ export async function queryOSMArea(
   if (mode === "semantic") {
     if (!params.keyword) throw new Error("请输入关键词");
     const place = await searchNominatim(params.keyword, signal);
-    if (!place || !place.boundingbox) {
+    if (!place) {
       throw new Error(`未找到「${params.keyword}」的位置信息，请尝试更具体的名称`);
     }
-    const bbox = expandBbox(place.boundingbox);
-    query = buildOverpassBboxQuery(bbox, areaType);
+    if (place.osm_type && place.osm_id) {
+      const areaId = osmToAreaId(place.osm_type, place.osm_id);
+      query = buildAreaOverpassQuery(areaId, areaType);
+    } else if (place.boundingbox) {
+      const bbox = expandBbox(place.boundingbox);
+      query = buildOverpassBboxQuery(bbox, areaType);
+    } else {
+      throw new Error(`无法获取「${params.keyword}」的查询范围，请尝试更具体的名称`);
+    }
   } else if (mode === "viewport" || mode === "rectangle") {
     if (!params.bbox) throw new Error("缺少边界框参数");
     query = buildBboxOverpassQuery(params.bbox, areaType);
