@@ -526,17 +526,14 @@ async function searchGaodePOI(
 }
 
 // Gaode (Amap) — Search-first geocoding engine
+// Strategy: POI search always first (AMap's ranking is authoritative for landmarks).
+// Geocoding API is only a fallback when POI search returns nothing.
 async function geocodeGaode(address: string, apiKey: string, region?: string): Promise<GeocodeItem> {
-  // ── ALWAYS start with POI search (Step 1) ──
   try {
     const pois = await searchGaodePOI(address, apiKey, region);
 
     if (pois.length > 0) {
-      // Pick the best quality result (POI > street > city)
-      const priority: Record<POIQualityLevel, number> = { poi: 1, street: 2, city: 3, unknown: 4 };
-      pois.sort((a, b) => priority[a.qualityLevel] - priority[b.qualityLevel]);
       const best = pois[0];
-
       const [gcjLng, gcjLat] = best.location.split(",").map(Number);
       const [wgsLng, wgsLat] = gcj02towgs84(gcjLng, gcjLat);
       const formattedAddress = best.address && best.address !== "[]"
@@ -544,69 +541,22 @@ async function geocodeGaode(address: string, apiKey: string, region?: string): P
         : best.name;
 
       console.log(
-        `[定位引擎] 模式: 搜索优先 | 命中类型: ${best.qualityLevel} | ` +
-        `名称: "${best.name}" | 最终坐标: [${wgsLng.toFixed(6)}, ${wgsLat.toFixed(6)}]`
+        `[geocodeGaode] POI搜索命中: "${best.name}" → [${wgsLng.toFixed(6)}, ${wgsLat.toFixed(6)}]`
       );
 
-      // If best result is POI or street level → done
-      if (best.qualityLevel !== "city") {
-        return {
-          address,
-          lng: wgsLng.toFixed(6),
-          lat: wgsLat.toFixed(6),
-          formattedAddress,
-          source: "gaode" as const,
-          status: "success" as const,
-        };
-      }
-
-      // All results are city/district level → try extracting keywords for another pass
-      const keywords = extractKeywords(address);
-      if (keywords.length >= 2 && keywords !== address) {
-        console.log(`[定位引擎] POI 搜索全为城市级，尝试关键词重搜: "${keywords}"`);
-        const refined = await searchGaodePOI(keywords, apiKey, region);
-        const good = refined.find(p => p.qualityLevel !== "city");
-        if (good) {
-          const [gLng, gLat] = good.location.split(",").map(Number);
-          const [wL, wLa] = gcj02towgs84(gLng, gLat);
-          const fmt = good.address && good.address !== "[]" ? `${good.name} (${good.address})` : good.name;
-          console.log(
-            `[定位引擎] 模式: 搜索优先 | 命中类型: ${good.qualityLevel} | ` +
-            `名称: "${good.name}" | 最终坐标: [${wL.toFixed(6)}, ${wLa.toFixed(6)}]`
-          );
-          return { address, lng: wL.toFixed(6), lat: wLa.toFixed(6), formattedAddress: fmt, source: "gaode", status: "success" };
-        }
-      }
-
-      // Still only city results → fall through to geocoding API
-      console.log(`[定位引擎] POI 搜索无具体结果，触发降级策略（Step 2: Geocoding API）`);
-    } else {
-      console.log(`[定位引擎] POI 搜索无结果，触发降级策略（Step 2: Geocoding API）`);
-    }
-
-    // ── Step 2: Fall back to geocoding API ──
-    const geoResult = await geocodeGaodeFallback(address, apiKey, region);
-    if (geoResult) return geoResult;
-
-    // Last resort: if geocoding also fails, return city center from POI results if available
-    if (pois.length > 0) {
-      const fallback = pois[0];
-      const [gcjLng, gcjLat] = fallback.location.split(",").map(Number);
-      const [wgsLng, wgsLat] = gcj02towgs84(gcjLng, gcjLat);
-      console.log(
-        `[定位引擎] 模式: 搜索兜底 | 命中类型: city | ` +
-        `名称: "${fallback.name}" | 最终坐标: [${wgsLng.toFixed(6)}, ${wgsLat.toFixed(6)}] (区域中心)`
-      );
       return {
         address,
         lng: wgsLng.toFixed(6),
         lat: wgsLat.toFixed(6),
-        formattedAddress: fallback.name,
+        formattedAddress,
         source: "gaode" as const,
         status: "success" as const,
-        warning: "已定位到区域中心，请提供更具体地址",
       };
     }
+
+    console.log(`[geocodeGaode] POI搜索无结果，fallback到地理编码API: "${address}"`);
+    const geoResult = await geocodeGaodeFallback(address, apiKey, region);
+    if (geoResult) return geoResult;
 
     return { address, status: "failed", source: "gaode", error: "未找到有效坐标" };
 
