@@ -36,7 +36,8 @@ const MODE_OPTIONS: { value: AreaQueryMode; labelKey: string; hintKey: string; i
 const POLYGON_TYPES: AreaQueryType[] = ["all", "building", "landuse", "admin"];
 const POI_TYPES: AreaQueryType[] = [
   "poi_restaurant", "poi_medical", "poi_transport",
-  "poi_shopping", "poi_education", "poi_sport", "poi_all",
+  "poi_shopping", "poi_education", "poi_sport",
+  "poi_hotel", "poi_all",
 ];
 
 export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onResults }: AreaQueryPanelProps) {

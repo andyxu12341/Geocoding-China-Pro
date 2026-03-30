@@ -158,7 +158,8 @@
     "groupPolygon": "Polygon Extraction",
     "groupPOI": "POI Point",
     "osmOnly": "OSM only",
-    "polygonDisabled": "Polygon extraction is only available on OpenStreetMap"
+    "polygonDisabled": "Polygon extraction is only available on OpenStreetMap",
+    "hotelHint": "Accommodation (hotels/hostels)"
   },
   "tabs": {
     "geocoding": "Geocoding",

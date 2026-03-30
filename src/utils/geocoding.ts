@@ -19,6 +19,7 @@ export type AreaQueryType =
   | "poi_shopping"
   | "poi_education"
   | "poi_sport"
+  | "poi_hotel"
   | "poi_all";
 
 export type QueryGroup = "polygon" | "poi";
@@ -41,6 +42,7 @@ export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
   poi_shopping: "🛒 商业购物",
   poi_education: "🎓 教育设施",
   poi_sport: "⚽ 体育健身",
+  poi_hotel: "🏨 住宿服务",
   poi_all: "📍 所有 POI",
 };
 
@@ -55,6 +57,7 @@ export const AREA_TYPE_DESCRIPTIONS: Record<AreaQueryType, string> = {
   poi_shopping: "查询商场、超市、便利店等商业购物场所",
   poi_education: "查询学校、大学、幼儿园等教育设施",
   poi_sport: "查询体育场、运动中心、篮球场等体育设施",
+  poi_hotel: "查询酒店、旅馆、民宿等住宿服务",
   poi_all: "查询所有类型的 POI 点位",
 };
 
@@ -191,6 +194,7 @@ export const POI_COLORS: Record<AreaQueryType, string> = {
   poi_shopping: "#27AE60",
   poi_education: "#3498DB",
   poi_sport: "#1ABC9C",
+  poi_hotel: "#8E44AD",
   poi_all: "#9B59B6",
 };
 
@@ -271,13 +275,14 @@ export function getStandardizedTags(tags: Record<string, string>, queryType: Are
       building: "建筑",
       landuse: "城市功能区",
       admin: "行政边界",
-      poi_restaurant: "餐饮美食",
-      poi_medical: "医疗设施",
-      poi_transport: "交通设施",
-      poi_shopping: "商业购物",
-      poi_education: "教育设施",
-      poi_sport: "体育健身",
-      poi_all: "所有 POI",
+    poi_restaurant: "餐饮美食",
+    poi_medical: "医疗设施",
+    poi_transport: "交通设施",
+    poi_shopping: "商业购物",
+    poi_education: "教育设施",
+    poi_sport: "体育健身",
+    poi_hotel: "住宿服务",
+    poi_all: "所有 POI",
     };
     return {
       categoryName: POI_LABELS[queryType],
@@ -826,7 +831,9 @@ function getPOITypeFilter(type: AreaQueryType): string {
     case "poi_education":
       return `node["amenity"~"school|university|kindergarten|college"](AREA_PLACEHOLDER);`;
     case "poi_sport":
-      return `node["leisure"~"pitch|sports_centre|stadium|fitness_centre"](AREA_PLACEHOLDER);`;
+      return `node["leisure"~"pitch|sports_centre|fitness_centre"](AREA_PLACEHOLDER);`;
+    case "poi_hotel":
+      return `node["tourism"="hotel"](AREA_PLACEHOLDER);`;
     case "poi_all":
       return [
         `node["amenity"](AREA_PLACEHOLDER);`,
@@ -1159,12 +1166,13 @@ export async function queryGaodePOI(
 ): Promise<POIResult[]> {
   const { categoryName, color } = getStandardizedTags({}, poiType);
   const POITYPE_MAP: Record<AreaQueryType, string> = {
-    poi_restaurant: "餐饮服务",
-    poi_medical: "医疗保健",
-    poi_transport: "交通设施",
-    poi_shopping: "购物",
-    poi_education: "科教文化",
-    poi_sport: "体育休闲",
+    poi_restaurant: "050000",
+    poi_medical: "090000",
+    poi_transport: "150000",
+    poi_shopping: "060000",
+    poi_education: "140000",
+    poi_sport: "080000",
+    poi_hotel: "100000",
     poi_all: "",
     all: "",
     building: "",
@@ -1241,6 +1249,7 @@ export async function queryBaiduPOI(
     poi_shopping: "购物",
     poi_education: "教育培训",
     poi_sport: "运动健身",
+    poi_hotel: "酒店",
     poi_all: "",
     all: "",
     building: "",

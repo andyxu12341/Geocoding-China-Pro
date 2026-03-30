@@ -158,7 +158,8 @@
     "groupPolygon": "面域提取",
     "groupPOI": "POI 点位",
     "osmOnly": "仅 OpenStreetMap",
-    "polygonDisabled": "面域提取仅 OpenStreetMap 可用"
+    "polygonDisabled": "面域提取仅 OpenStreetMap 可用",
+    "hotelHint": "住宿服务（酒店/旅馆）"
   },
   "tabs": {
     "geocoding": "坐标转换",
