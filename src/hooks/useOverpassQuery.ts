@@ -33,6 +33,22 @@ export interface UseOverpassQueryReturn {
   reset: () => void;
 }
 
+function normalizeError(err: unknown): string {
+  if (!(err instanceof Error)) return "查询失败";
+  const m = err.message;
+  if (/504|Gateway|timeout|Timeout/i.test(m)) return "服务器响应超时，请缩小查询范围或稍后再试";
+  if (/429/i.test(m)) return "请求过于频繁，请稍后再试";
+  return m;
+}
+
+function wrapPolygon(results: AreaResult[]): SpatialResult[] {
+  return results.map(r => ({ polygon: r }));
+}
+
+function wrapPOI(results: POIResult[]): SpatialResult[] {
+  return results.map(r => ({ poi: r }));
+}
+
 export function useOverpassQuery(): UseOverpassQueryReturn {
   const [results, setResults] = useState<SpatialResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,45 +65,35 @@ export function useOverpassQuery(): UseOverpassQueryReturn {
     region?: string;
   }) => {
     const { mode, areaType, dataSource, keyword, bbox, polygonLatLngs, apiKey, region } = params;
-    const queryGroup = getQueryGroup(areaType);
 
     setIsLoading(true);
     setError(null);
     try {
-      let spatialResults: SpatialResult[] = [];
-
-      if (queryGroup === "polygon") {
+      if (getQueryGroup(areaType) === "polygon") {
         const areaResults = await queryOSMArea(mode, areaType, { keyword, bbox, polygonLatLngs });
-        spatialResults = areaResults.map(r => ({ polygon: r }));
-      } else {
-        if (dataSource === "osm") {
-          const poiResults = await queryOSMPOI(mode, areaType, { keyword, bbox, polygonLatLngs });
-          spatialResults = poiResults.map(r => ({ poi: r }));
-        } else if (dataSource === "gaode") {
-          if (!apiKey) throw new Error("高德 POI 查询需要 API Key");
-          const poiResults = await queryGaodePOI(keyword || "", areaType, apiKey, region, bbox);
-          spatialResults = poiResults.map(r => ({ poi: r }));
-        } else if (dataSource === "baidu") {
-          if (!apiKey) throw new Error("百度 POI 查询需要 API Key");
-          const poiResults = await queryBaiduPOI(keyword || "", areaType, apiKey, region);
-          spatialResults = poiResults.map(r => ({ poi: r }));
-        }
+        setResults(wrapPolygon(areaResults));
+        return wrapPolygon(areaResults);
       }
 
-      setResults(spatialResults);
-      return spatialResults;
-    } catch (err) {
-      let msg = "查询失败";
-      if (err instanceof Error) {
-        if (err.message.includes("504") || err.message.includes("Gateway") || err.message.includes("timeout") || err.message.includes("Timeout")) {
-          msg = "服务器响应超时，请缩小查询范围或稍后再试";
-        } else if (err.message.includes("429")) {
-          msg = "请求过于频繁，请稍后再试";
-        } else {
-          msg = err.message;
-        }
+      if (dataSource === "osm") {
+        const poiResults = await queryOSMPOI(mode, areaType, { keyword, bbox, polygonLatLngs });
+        setResults(wrapPOI(poiResults));
+        return wrapPOI(poiResults);
       }
-      setError(msg);
+
+      if (!apiKey) {
+        const msg = dataSource === "gaode" ? "高德 POI 查询需要 API Key" : "百度 POI 查询需要 API Key";
+        throw new Error(msg);
+      }
+
+      const poiResults = dataSource === "gaode"
+        ? await queryGaodePOI(keyword || "", areaType, apiKey, region, bbox)
+        : await queryBaiduPOI(keyword || "", areaType, apiKey, region);
+
+      setResults(wrapPOI(poiResults));
+      return wrapPOI(poiResults);
+    } catch (err) {
+      setError(normalizeError(err));
       return [];
     } finally {
       setIsLoading(false);

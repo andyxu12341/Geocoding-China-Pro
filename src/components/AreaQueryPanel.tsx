@@ -25,20 +25,39 @@ interface AreaQueryPanelProps {
   onResults: (results: SpatialResult[]) => void;
 }
 
-type POISource = "osm" | "gaode" | "baidu";
-
-const MODE_OPTIONS: { value: AreaQueryMode; labelKey: string; hintKey: string; icon: React.ReactNode }[] = [
-  { value: "semantic", labelKey: "areaQuery.modeSemantic", hintKey: "areaQuery.modeSemanticHint", icon: <Search className="h-4 w-4" /> },
-  { value: "rectangle", labelKey: "areaQuery.modeRectangle", hintKey: "areaQuery.modeRectangleHint", icon: <Square className="h-4 w-4" /> },
-  { value: "polygon", labelKey: "areaQuery.modePolygon", hintKey: "areaQuery.modePolygonHint", icon: <Pentagon className="h-4 w-4" /> },
-];
-
 const POLYGON_TYPES: AreaQueryType[] = ["all", "building", "landuse", "admin"];
 const POI_TYPES: AreaQueryType[] = [
   "poi_restaurant", "poi_medical", "poi_transport",
   "poi_shopping", "poi_education", "poi_sport",
   "poi_hotel", "poi_all",
 ];
+
+function TypeButton({
+  type, active, onClick, disabled, tooltip,
+}: {
+  type: AreaQueryType;
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  tooltip?: string;
+}) {
+  return (
+    <button
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      title={tooltip}
+      className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+        disabled
+          ? "border-border bg-muted/40 text-muted-foreground cursor-not-allowed opacity-60"
+          : active
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-border hover:bg-accent"
+      }`}
+    >
+      {AREA_TYPE_LABELS[type]}
+    </button>
+  );
+}
 
 export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onResults }: AreaQueryPanelProps) {
   const { t } = useTranslation();
@@ -50,29 +69,20 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
   const [areaType, setAreaType] = useState<AreaQueryType>("building");
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const isOsm = mapSource === "osm";
 
   useEffect(() => {
-    if (mapSource !== "osm") {
-      setAreaType(prev => prev.startsWith("poi_") ? prev : "poi_all");
+    if (!isOsm && !areaType.startsWith("poi_")) {
+      setAreaType("poi_all");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapSource]);
+  }, [isOsm, areaType, mapSource]);
 
-  const poiSource: POISource = isOsm ? "osm" : mapSource === "gaode" ? "gaode" : "baidu";
+  const poiSource = isOsm ? "osm" : mapSource === "gaode" ? "gaode" : "baidu";
   const apiKey = poiSource === "gaode" ? gaodeKey.trim() : poiSource === "baidu" ? baiduKey.trim() : undefined;
+  const effectiveAreaType = (!isOsm && !areaType.startsWith("poi_")) ? "poi_all" : areaType;
 
-  const handleAreaTypeChange = (type: AreaQueryType) => {
-    setAreaType(type);
-  };
 
-  const effectiveAreaType = (() => {
-    if (!isOsm && !areaType.startsWith("poi_")) return "poi_all";
-    return areaType;
-  })();
-
-  const handleQuery = () => {
+  const handleQuery = async () => {
     if (debounceRef.current) return;
     debounceRef.current = setTimeout(() => { debounceRef.current = null; }, 800);
 
@@ -82,49 +92,34 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
     }
 
     if (mode === "rectangle") {
-      geoMapRef.current?.setDrawCallbacks(
-        async (bounds) => {
-          const bbox: [number, number, number, number] = [
-            bounds.getSouth(), bounds.getWest(),
-            bounds.getNorth(), bounds.getEast(),
-          ];
-          const results = await fetchSpatial({ mode: "rectangle", areaType: effectiveAreaType, dataSource: poiSource, bbox, apiKey });
-          onResults(results);
-          geoMapRef.current?.setDrawMode("none");
-        },
-        null
-      );
+      geoMapRef.current?.setDrawCallbacks(async (bounds) => {
+        const bbox: [number, number, number, number] = [
+          bounds.getSouth(), bounds.getWest(),
+          bounds.getNorth(), bounds.getEast(),
+        ];
+        const results = await fetchSpatial({ mode: "rectangle", areaType: effectiveAreaType, dataSource: poiSource, bbox, apiKey });
+        onResults(results);
+        geoMapRef.current?.setDrawMode("none");
+      }, null);
       geoMapRef.current?.setDrawMode("rectangle");
       return;
     }
 
     if (mode === "polygon") {
-      geoMapRef.current?.setDrawCallbacks(
-        null,
-        async (latlngs) => {
-          const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
-          const results = await fetchSpatial({ mode: "polygon", areaType: effectiveAreaType, dataSource: poiSource, polygonLatLngs, apiKey });
-          onResults(results);
-          geoMapRef.current?.setDrawMode("none");
-        }
-      );
+      geoMapRef.current?.setDrawCallbacks(null, async (latlngs) => {
+        const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
+        const results = await fetchSpatial({ mode: "polygon", areaType: effectiveAreaType, dataSource: poiSource, polygonLatLngs, apiKey });
+        onResults(results);
+        geoMapRef.current?.setDrawMode("none");
+      });
       geoMapRef.current?.setDrawMode("polygon");
       return;
     }
 
-    const runQuery = async () => {
-      const results = await fetchSpatial({
-        mode: "semantic",
-        areaType: effectiveAreaType,
-        dataSource: poiSource,
-        keyword: keyword.trim(),
-        apiKey,
-      });
-      onResults(results);
-    };
-
-    runQuery();
+    const results = await fetchSpatial({ mode: "semantic", areaType: effectiveAreaType, dataSource: poiSource, keyword: keyword.trim(), apiKey });
+    onResults(results);
   };
+
 
   return (
     <Card>
@@ -142,48 +137,31 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground font-medium">🏗️ {t("areaQuery.groupPolygon")}</span>
-              {!isOsm && (
-                <span className="text-xs text-muted-foreground">({t("areaQuery.osmOnly")})</span>
-              )}
+              {!isOsm && <span className="text-xs text-muted-foreground">({t("areaQuery.osmOnly")})</span>}
             </div>
             <div className="flex flex-wrap gap-1">
-              {POLYGON_TYPES.map(type => {
-                const disabled = !isOsm;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => !disabled && handleAreaTypeChange(type)}
-                    disabled={disabled}
-                    title={disabled ? t("areaQuery.polygonDisabled") : ""}
-                    className={`rounded-md border px-2 py-1 text-xs transition-colors ${
-                      disabled
-                        ? "border-border bg-muted/40 text-muted-foreground cursor-not-allowed opacity-60"
-                        : effectiveAreaType === type
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border hover:bg-accent"
-                    }`}
-                  >
-                    {AREA_TYPE_LABELS[type]}
-                  </button>
-                );
-              })}
+              {POLYGON_TYPES.map(type => (
+                <TypeButton
+                  key={type}
+                  type={type}
+                  active={effectiveAreaType === type}
+                  onClick={() => setAreaType(type)}
+                  disabled={!isOsm}
+                  tooltip={!isOsm ? t("areaQuery.polygonDisabled") : undefined}
+                />
+              ))}
             </div>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="mt-2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground font-medium">📍 {t("areaQuery.groupPOI")}</span>
             </div>
             <div className="flex flex-wrap gap-1">
               {POI_TYPES.map(type => (
-                <button
+                <TypeButton
                   key={type}
-                  onClick={() => handleAreaTypeChange(type)}
-                  className={`rounded-md border px-2 py-1 text-xs transition-colors ${
-                    effectiveAreaType === type
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-accent"
-                  }`}
-                >
-                  {AREA_TYPE_LABELS[type]}
-                </button>
+                  type={type}
+                  active={effectiveAreaType === type}
+                  onClick={() => setAreaType(type)}
+                />
               ))}
             </div>
           </div>
@@ -194,18 +172,22 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
             {t("areaQuery.extractionMode")}
           </label>
           <RadioGroup value={mode} onValueChange={v => setMode(v as AreaQueryMode)} className="space-y-2">
-            {MODE_OPTIONS.map(opt => (
-              <div key={opt.value} className="flex items-start gap-2.5 rounded-lg border p-2.5 hover:bg-accent/40 transition-colors">
-                <RadioGroupItem value={opt.value} id={opt.value} className="mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <Label htmlFor={opt.value} className="flex items-center gap-1.5 text-sm font-medium cursor-pointer">
-                    {opt.icon}
-                    {t(opt.labelKey)}
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t(opt.hintKey)}</p>
+            {(["semantic", "rectangle", "polygon"] as AreaQueryMode[]).map(m => {
+              const icons = { semantic: Search, rectangle: Square, polygon: Pentagon };
+              const Icon = icons[m];
+              return (
+                <div key={m} className="flex items-start gap-2.5 rounded-lg border p-2.5 hover:bg-accent/40 transition-colors">
+                  <RadioGroupItem value={m} id={m} className="mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor={m} className="flex items-center gap-1.5 text-sm font-medium cursor-pointer">
+                      <Icon className="h-4 w-4" />
+                      {t(`areaQuery.mode${m.charAt(0).toUpperCase() + m.slice(1)}`)}
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t(`areaQuery.mode${m.charAt(0).toUpperCase() + m.slice(1)}Hint`)}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </RadioGroup>
         </div>
 
@@ -257,11 +239,7 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
           )}
         </AnimatePresence>
 
-        <Button
-          onClick={handleQuery}
-          disabled={isLoading}
-          className="w-full gap-1.5"
-        >
+        <Button onClick={handleQuery} disabled={isLoading} className="w-full gap-1.5">
           {isLoading ? (
             <><Loader2 className="h-4 w-4 animate-spin" /> {t("toast.areaQuery")}...</>
           ) : mode === "rectangle" ? (
