@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Search, Maximize2, Square, Pentagon, Loader2,
+  MapPin, Search, Square, Pentagon, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +31,6 @@ const MODE_OPTIONS: { value: AreaQueryMode; labelKey: string; hintKey: string; i
     labelKey: "areaQuery.modeSemantic",
     hintKey: "areaQuery.modeSemanticHint",
     icon: <Search className="h-4 w-4" />,
-  },
-  {
-    value: "viewport",
-    labelKey: "areaQuery.modeViewport",
-    hintKey: "areaQuery.modeViewportHint",
-    icon: <Maximize2 className="h-4 w-4" />,
   },
   {
     value: "rectangle",
@@ -72,12 +66,6 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
         toast({ title: t("toast.noKeyword"), variant: "destructive" });
         return;
       }
-    }
-
-    const zoom = geoMapRef.current?.getZoom() ?? 0;
-    if (mode === "viewport" && zoom < 15) {
-      toast({ title: t("toast.zoomTooLow"), variant: "destructive" });
-      return;
     }
 
     if (mode === "rectangle") {
@@ -116,22 +104,6 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
     const runQuery = async () => {
       if (mode === "semantic") {
         const results = await fetchPolygons("semantic", areaType, { keyword: keyword.trim() });
-        onResults(results);
-      } else {
-        const bounds = geoMapRef.current?.getBounds();
-        const zoom = geoMapRef.current?.getZoom() ?? 0;
-        if (!bounds) return;
-        if (zoom < 14) {
-          toast({ title: "查询范围过大", description: "请放大地图（缩放级别 ≥ 14）后再试！", variant: "destructive" });
-          return;
-        }
-        const bbox: [number, number, number, number] = [
-          bounds.getSouth(),
-          bounds.getWest(),
-          bounds.getNorth(),
-          bounds.getEast(),
-        ];
-        const results = await fetchPolygons("viewport", areaType, { bbox });
         onResults(results);
       }
     };
@@ -201,18 +173,6 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
                 placeholder={t("areaQuery.keywordPlaceholder")}
                 onKeyDown={e => e.key === "Enter" && handleQuery()}
               />
-            </motion.div>
-          )}
-
-          {mode === "viewport" && (
-            <motion.div
-              key="viewport"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground"
-            >
-              {t("areaQuery.viewportHint")}
             </motion.div>
           )}
 

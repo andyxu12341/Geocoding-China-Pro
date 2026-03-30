@@ -11,7 +11,7 @@ export type AreaQueryType =
   | "landuse"     // 城市功能区
   | "admin";      // 行政边界
 
-export type AreaQueryMode = "semantic" | "viewport" | "rectangle" | "polygon";
+export type AreaQueryMode = "semantic" | "rectangle" | "polygon";
 
 export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
   all: "🌐 所有面域",
@@ -117,7 +117,6 @@ export function getOSMCategory(tags: Record<string, string>): string {
   if (["water", "river", "lake", "pond", "reservoir", "stream", "wetland"].includes(raw)) return "other";
   if (["forest", "farmland", "grass", "meadow", "orchard", "vineyard"].includes(raw)) return "park";
   if (["military"].includes(raw)) return "other";
-  if (["building"].includes(raw) || raw.length > 0) return "residential";
 
   return "other";
 }
@@ -645,31 +644,63 @@ function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryT
 
 // getAreaPolyFilter removed — unified into getAreaTypeFilter with areaRef param
 
-function parseOverpassGeometry(element: OverpassElement): number[][] {
-  // For ways: geometry is directly on the element
+function stitchWayCoords(element: OverpassElement, allElements: OverpassElement[]): number[][] {
+  if (!element.nodes || element.nodes.length < 2) return [];
+  const nodeMap = new Map<number, { lat: number; lon: number }>();
+  for (const el of allElements) {
+    if (el.type === "node" && el.lat !== undefined && el.lon !== undefined) {
+      nodeMap.set(el.id, { lat: el.lat, lon: el.lon });
+    }
+  }
+  const coords: number[][] = [];
+  for (const nodeId of element.nodes) {
+    const node = nodeMap.get(nodeId);
+    if (node) coords.push([node.lon, node.lat]);
+  }
+  return coords;
+}
+
+function parseRelationGeometry(element: OverpassElement, allElements: OverpassElement[]): number[][][] {
+  const outerWays: OverpassElement[] = [];
+  const innerWays: OverpassElement[] = [];
+  for (const member of element.members || []) {
+    if (member.type !== "way") continue;
+    const way = allElements.find(el => el.type === "way" && el.id === member.ref);
+    if (!way) continue;
+    if (member.role === "outer") outerWays.push(way);
+    else innerWays.push(way);
+  }
+  const rings: number[][][] = [];
+  for (const way of outerWays) {
+    if (way.geometry && way.geometry.length > 0) {
+      rings.push(way.geometry.map(g => [g.lon, g.lat]));
+    } else {
+      const coords = stitchWayCoords(way, allElements);
+      if (coords.length >= 3) rings.push(coords);
+    }
+  }
+  if (rings.length === 0 && element.geometry) {
+    rings.push(element.geometry.map(g => [g.lon, g.lat]));
+  }
+  return rings;
+}
+
+function parseOverpassGeometry(element: OverpassElement, allElements?: OverpassElement[]): number[][] {
+  if (element.type === "relation") {
+    if (!allElements || !element.members) {
+      if (element.geometry && element.geometry.length > 0) {
+        return element.geometry.map(g => [g.lon, g.lat]);
+      }
+      return [];
+    }
+    const rings = parseRelationGeometry(element, allElements);
+    return rings.length > 0 ? rings[0] : [];
+  }
   if (element.geometry && element.geometry.length > 0) {
     return element.geometry.map(g => [g.lon, g.lat]);
   }
-  // For relations with out geom: geometry is on members
-  if (element.members) {
-    const coords: number[][] = [];
-    for (const member of element.members) {
-      if (member.role === "outer" && (member as any).geometry) {
-        for (const g of (member as any).geometry) {
-          coords.push([g.lon, g.lat]);
-        }
-      }
-    }
-    if (coords.length > 0) return coords;
-    // Fallback: any member with geometry
-    for (const member of element.members) {
-      if ((member as any).geometry) {
-        for (const g of (member as any).geometry) {
-          coords.push([g.lon, g.lat]);
-        }
-      }
-    }
-    return coords;
+  if (allElements && element.nodes && element.nodes.length > 0) {
+    return stitchWayCoords(element, allElements);
   }
   return [];
 }
@@ -701,7 +732,7 @@ export async function queryOSMArea(
     } else {
       throw new Error(`无法获取「${params.keyword}」的查询范围，请尝试更具体的名称`);
     }
-  } else if (mode === "viewport" || mode === "rectangle") {
+  } else if (mode === "rectangle") {
     if (!params.bbox) throw new Error("缺少边界框参数");
     query = buildBboxOverpassQuery(params.bbox, areaType);
   } else {
@@ -752,10 +783,21 @@ export async function queryOSMArea(
   if (!data) throw lastErr || new Error("Overpass 查询失败");
 
   const results: AreaResult[] = [];
-  for (const el of data.elements) {
+  const allElements = data.elements;
+
+  for (const el of allElements) {
     if (!el.tags?.name) continue;
-    const polygon = parseOverpassGeometry(el);
-    if (polygon.length < 3) continue;
+
+    let polygons: number[][][];
+    if (el.type === "relation") {
+      polygons = parseRelationGeometry(el, allElements);
+    } else {
+      const coords = parseOverpassGeometry(el, allElements);
+      if (coords.length < 3) continue;
+      polygons = [coords];
+    }
+
+    if (polygons.length === 0 || polygons[0].length < 3) continue;
 
     const tags = el.tags || {};
     const raw =
@@ -767,7 +809,7 @@ export async function queryOSMArea(
       "";
     if (raw === "no") continue;
 
-    const center = elementCenter(polygon);
+    const center = elementCenter(polygons[0]);
     results.push({
       name: el.tags.name,
       type: areaType,
@@ -775,7 +817,7 @@ export async function queryOSMArea(
       osmType: el.type,
       tags,
       category: getOSMCategory(tags),
-      polygon: [polygon],
+      polygon: polygons,
       center,
     });
   }
