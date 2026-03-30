@@ -1,8 +1,8 @@
 # Geocoding-China-Pro | 地理编码与面域数据工作站
 
-**空间数据工作站** — 批量地理编码转换 & OpenStreetMap 面域数据提取工具
+**空间数据工作站** — 批量地理编码转换 & OSM 面域/POI 点位查询工具
 
-**Spatial Data Workstation** — Batch Geocoding Converter & OSM Polygon Extraction Tool
+**Spatial Data Workstation** — Batch Geocoding & OSM Polygon/POI Query Tool
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub Stars](https://img.shields.io/github/stars/andyxu12341/Geocoding-China-Pro)](https://github.com/andyxu12341/Geocoding-China-Pro/stargazers)
@@ -22,14 +22,18 @@
 - **自定义分类着色 / Custom Category Coloring** — 按分类字段彩色标注坐标点
 - **导出 GeoJSON / KML / PNG** — 支持 QGIS / ArcGIS / Google Earth
 
-### Tab B: 面域提取 | Polygon Extraction
-- **OpenStreetMap 面域查询 / OSM Polygon Query** — 基于 Overpass API 查询 OSM 建筑轮廓、城市功能区、行政边界
-- **语义搜索 / Semantic Search** — 输入地名/POI/行政区名称，通过 Nominatim 定位后提取周边面域
-- **矩形框选 / Two-Click Rectangle** — 地图上点击两个对角顶点，自动成框并提取框内面域
-- **多边形绘制 / Polygon Drawing** — 自由绘制任意多边形，提取多边形内面域
-- **国土分类着色 / LANDUSE_STANDARD_MAP** — 60+ 分类条目，严格遵循国土空间制图规范（GB 标准），8 色城市规划配色
+### Tab B: 面域 & POI 提取 | Polygon & POI Extraction
+- **OpenStreetMap 面域查询 / OSM Polygon Query** — 基于 Overpass API 查询建筑轮廓、城市功能区、行政边界
+- **POI 点位查询 / POI Point Query** — 支持 OSM、高德、百度三套数据源
+  - **OSM (Overpass API)** — 查询 OSM node 数据，免费无 Key
+  - **高德 POI** — 精细 POI 分类，需高德 Web 服务 Key
+  - **百度 POI** — 精细 POI 分类，需百度浏览器端 AK
+- **语义搜索 / Semantic Search** — 输入地名/POI/行政区名称，通过 Nominatim 定位后提取周边面域或 POI
+- **矩形框选 / Two-Click Rectangle** — 地图上点击两个对角顶点，自动成框并提取框内数据
+- **多边形绘制 / Polygon Drawing** — 自由绘制任意多边形，提取多边形内数据
+- **国土分类着色 / LANDUSE_STANDARD_MAP** — 60+ 分类条目，严格遵循国土空间制图规范（GB 标准）
 - **行政边界 / Administrative Boundaries** — 支持省/市/区县/街道四级行政区边界提取（admin_level 2/4/6/8）
-- **导出 GeoJSON & KML & CSV** — 直接导出用于 QGIS / ArcGIS / Google Earth，KML 按分类自动着色
+- **统一导出 / Unified Export** — CSV / GeoJSON / KML（POI 点位与面域数据可分别导出或合并导出）
 
 ### 地图可视化 | Map Visualization
 - **9 种底图 / 9 Tile Layers** — 高德、OpenStreetMap、Esri 卫星、高德卫星、智图、天地图（街景/卫星）、CARTO 暗色
@@ -90,12 +94,13 @@ src/
 │   └── Index.tsx              # 主页面 | Main page
 ├── components/
 │   ├── GeoMap.tsx             # 地图组件（Leaflet 原生）| Map component (raw Leaflet)
-│   ├── AreaQueryPanel.tsx     # 面域提取面板 | Area query panel
-│   ├── ResultsSection.tsx     # 统一结果表格 | Unified results table
+│   ├── GeocodingPanel.tsx    # Tab A 坐标转换面板 | Tab A geocoding panel
+│   ├── AreaQueryPanel.tsx     # Tab B 面域/POI 提取面板 | Tab B extraction panel
+│   ├── ResultsSection.tsx      # 统一结果表格 | Unified results table
 │   └── ui/                   # shadcn/ui 组件库
 ├── hooks/
 │   ├── useGeocoding.ts        # 坐标转换 Hook | Geocoding hook
-│   └── useOverpassQuery.ts    # 面域查询 Hook | Overpass query hook
+│   └── useOverpassQuery.ts    # 面域/POI 查询 Hook | Overpass query hook
 ├── utils/
 │   ├── geocoding.ts           # 地理编码 + Overpass QL 查询 | Geocoding + Overpass QL
 │   └── exportUtils.ts         # 导出 CSV / GeoJSON / KML | Export utilities
