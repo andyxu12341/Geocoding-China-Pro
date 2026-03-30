@@ -10,7 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import type { GeocodeItem, AreaResult } from "@/utils/geocoding";
 import {
-  exportCSV, exportGeoJSON, exportKML,
+  exportCSV, exportGeoJSON, exportGeocodingKML,
   exportPolygonCSV, exportPolygonGeoJSON, exportPolygonKML,
 } from "@/utils/exportUtils";
 
@@ -55,7 +55,7 @@ export function ResultsSection({
                       <>
                         <DropdownMenuItem onClick={() => exportCSV(results)}>📄 {t("results.exportCSV")}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => exportGeoJSON(results)}>🗺️ {t("results.exportGeoJSON")}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => exportKML(results)}>📍 {t("results.exportKML")}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => exportGeocodingKML(results)}>📍 {t("results.exportKML")}</DropdownMenuItem>
                       </>
                     ) : (
                       <>
