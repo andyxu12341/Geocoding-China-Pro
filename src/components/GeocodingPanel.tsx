@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
+
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {
   MapPin, UploadCloud, FileText,
-  Play, Map, Square, X, Loader2,
+  Play, Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useGeocoding } from "@/hooks/useGeocoding";
 import { cn } from "@/lib/utils";
@@ -99,9 +98,6 @@ async function parseUploadFile(file: File): Promise<{ headers: string[]; rows: R
   }
 }
 
-function formatSeconds(s: number) {
-  return s < 60 ? `${Math.round(s)} 秒` : `${Math.floor(s / 60)} 分 ${Math.round(s % 60)} 秒`;
-}
 
 export function GeocodingPanel({
   mapSource, gaodeKey, baiduKey, regionFilter,
@@ -163,11 +159,6 @@ export function GeocodingPanel({
 
   const addressCount = getAddresses().length;
   const displayCount = addressCount > 0 ? addressCount : (inputMode === "text" ? 5 : 0);
-  const progress = total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
-  const eta = (() => {
-    if (!isProcessing || completed === 0) return null;
-    return ((elapsedMs / 1000) / completed) * (total - completed);
-  })();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -316,43 +307,6 @@ export function GeocodingPanel({
           </TabsContent>
         </Tabs>
       </div>
-
-      <AnimatePresence mode="wait">
-        {isProcessing ? (
-          <motion.div
-            key="processing"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3"
-          >
-            <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1 text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {t("progress.processing")}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {completed} / {total}{eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}
-              </span>
-            </div>
-            <Progress value={progress} className="h-1.5" />
-            <div className="grid grid-cols-3 gap-1 text-center">
-              <div className="rounded bg-primary/10 px-1 py-0.5 text-xs">
-                <span className="text-muted-foreground">{t("progress.total")}</span>
-                <p className="font-mono font-medium">{total}</p>
-              </div>
-              <div className="rounded bg-emerald-500/10 px-1 py-0.5 text-xs">
-                <span className="text-muted-foreground">{t("progress.success")}</span>
-                <p className="font-mono font-medium text-emerald-600">{results.filter(r => r.status === "success").length}</p>
-              </div>
-              <div className="rounded bg-rose-500/10 px-1 py-0.5 text-xs">
-                <span className="text-muted-foreground">{t("progress.failed")}</span>
-                <p className="font-mono font-medium text-rose-600">{results.filter(r => r.status === "failed").length}</p>
-              </div>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
       <Button
         size="lg"

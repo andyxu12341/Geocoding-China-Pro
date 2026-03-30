@@ -445,10 +445,11 @@ async function geocodeGaodePrimary(address: string, apiKey: string, region?: str
   const candidates: GeocodeCandidate[] = data.geocodes
     .filter(g => g.location)
     .map(g => {
-      const [lng, lat] = g.location.split(",");
+      const [gcjLng, gcjLat] = g.location.split(",").map(Number);
+      const [lng, lat] = gcj02towgs84(gcjLng, gcjLat);
       return {
-        lng,
-        lat,
+        lng: lng.toFixed(6),
+        lat: lat.toFixed(6),
         formattedAddress: g.formatted_address,
         province: g.province,
         city: typeof g.city === "string" ? g.city : undefined,
@@ -485,9 +486,10 @@ async function geocodeGaodePOI(address: string, apiKey: string, region?: string)
   if (!poi.location) {
     return { address, status: "failed", source: "gaode", error: "匹配失败: POI返回坐标为空" };
   }
-  const [lng, lat] = poi.location.split(",");
+  const [gcjLng, gcjLat] = poi.location.split(",").map(Number);
+  const [lng, lat] = gcj02towgs84(gcjLng, gcjLat);
   const formattedAddress = poi.address && poi.address !== "[]" ? `${poi.name} (${poi.address})` : poi.name;
-  return { address, lng, lat, formattedAddress, source: "gaode", status: "success" };
+  return { address, lng: lng.toFixed(6), lat: lat.toFixed(6), formattedAddress, source: "gaode", status: "success" };
 }
 
 /**
@@ -531,7 +533,8 @@ async function geocodeBaidu(address: string, apiKey: string, region?: string): P
   if (data.status !== 0 || !data.result?.location) {
     return { address, status: "failed", source: "baidu", error: `百度API返回错误码 ${data.status}` };
   }
-  const { lng, lat } = data.result.location;
+  const { lng: gcjLng, lat: gcjLat } = data.result.location;
+  const [lng, lat] = gcj02towgs84(gcjLng, gcjLat);
   return {
     address,
     lng: lng.toFixed(6),
@@ -1202,6 +1205,8 @@ export async function queryGaodePOI(
   const data = await res.json() as {
     status: string;
     info: string;
+    infoCode: string;
+    count: string;
     pois?: Array<{
       name: string;
       location: string;
@@ -1209,8 +1214,14 @@ export async function queryGaodePOI(
       type?: string;
     }>;
   };
-  if (data.status !== "1" || !data.pois?.length) {
-    throw new Error(data.info || "高德 POI 未找到结果");
+
+  console.log(`[GaodePOI] status=${data.status} infoCode=${data.infoCode} count=${data.count} pois=${data.pois?.length ?? 0}`);
+
+  if (data.status !== "1") {
+    throw new Error(`高德 POI 查询失败: ${data.info} (${data.infoCode})`);
+  }
+  if (!data.pois?.length) {
+    throw new Error(`高德 POI 未找到结果（${data.count || 0} 条），请尝试其他关键词或扩大搜索范围`);
   }
 
   return data.pois
