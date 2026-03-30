@@ -13,7 +13,7 @@
 
 ### Tab A: 坐标转换 | Point Geocoding
 - **多源地理编码 / Multi-source Geocoding** — 高德地图、百度地图、OpenStreetMap（均已内置）
-- **智能双引擎 / Dual Engine** — 高德主引擎 + POI 备选引擎，自动降级
+- **Search-First 智能引擎 / Search-First Engine** — POI 文本搜索优先，关键词提取重试，城市中心兜底
 - **跨区域校验 / Cross-region Validation** — 自动验证经纬度与地址省份/城市是否匹配
 - **批量处理 / Batch Processing** — 支持 CSV/Excel 大规模数据分批并发
 - **智能重试 / Smart Retry** — 失败自动重试，支持断点续传
