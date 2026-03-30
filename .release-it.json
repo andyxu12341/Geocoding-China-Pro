@@ -34,10 +34,7 @@
       "releaseCount": 0
     }
   },
-  "hooks": {
-    "before:init": ["npm run build"],
-    "after:bump": "npm run build"
-  },
+  "hooks": {},
   "version": {
     "increment": "patch",
     "override": false
