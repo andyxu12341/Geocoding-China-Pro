@@ -392,7 +392,7 @@ export default function Index() {
 
   const progress = total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
   const eta = (() => {
-    if (!isProcessing || completed === 0 || !startTime) return null;
+    if (!isProcessing || completed === 0) return null;
     return ((elapsedMs / 1000) / completed) * (total - completed);
   })();
   const successCount = results.filter(r => r.status === "success").length;
