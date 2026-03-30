@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.chinatmsproviders";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
-import { AREA_CATEGORY_COLORS } from "@/utils/geocoding";
+import { AREA_CATEGORY_COLORS, AREA_CATEGORY_LABELS } from "@/utils/geocoding";
 
 export interface MapMarker {
   lat: number;
@@ -266,8 +266,8 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     // Render polygons
     const seenCategories = new Set<string>();
     polygons?.forEach((poly) => {
-      const cat = poly.category ?? "default";
-      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.default;
+      const cat = poly.category ?? "other";
+      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.other;
       poly.rings.forEach(ring => {
         const latLngRing: L.LatLngExpression[] = ring.map(c => [c[1], c[0]] as L.LatLngTuple);
         if (latLngRing.length < 3) return;
@@ -302,17 +302,18 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     const legendItems: { color: string; label: string }[] = [];
     categoryColors?.forEach(cc => legendItems.push({ color: cc.color, label: cc.category }));
     seenCategories.forEach(cat => {
-      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.default;
-      legendItems.push({ color, label: cat });
+      const color = AREA_CATEGORY_COLORS[cat] ?? AREA_CATEGORY_COLORS.other;
+      const label = AREA_CATEGORY_LABELS[cat] ?? "其他设施";
+      legendItems.push({ color, label });
     });
 
     if (legendItems.length > 0) {
       const legend = new L.Control({ position: "bottomright" });
       legend.onAdd = () => {
         const div = L.DomUtil.create("div", "leaflet-legend");
-        div.style.cssText = "background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);padding:8px 12px;border-radius:8px;font-size:12px;line-height:20px;box-shadow:0 2px 8px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;";
+        div.style.cssText = "background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);padding:8px 12px;border-radius:8px;font-size:12px;line-height:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);max-height:220px;overflow-y:auto;min-width:130px;";
         div.innerHTML = legendItems.map(item =>
-          `<div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${item.color};border:1px solid #fff;box-shadow:0 0 2px rgba(0,0,0,0.3);"></span>${item.label}</div>`
+          `<div style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${item.color};border:1px solid rgba(0,0,0,0.15);"></span><span>${item.label}</span></div>`
         ).join("");
         return div;
       };

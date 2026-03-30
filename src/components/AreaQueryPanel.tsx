@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -21,6 +22,7 @@ import {
   type AreaQueryMode,
   type AreaResult,
   AREA_TYPE_LABELS,
+  AREA_CATEGORY_LABELS,
 } from "@/utils/geocoding";
 import { exportPolygonGeoJSON, exportPolygonKML } from "@/utils/exportUtils";
 import type { GeoMapHandle } from "@/components/GeoMap";
@@ -317,6 +319,50 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </div>
+
+              {/* Data Preview Table */}
+              <div className="mt-3 overflow-hidden">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  数据预览 ({areaResults.length} 条)
+                </p>
+                <div className="overflow-x-auto overflow-y-auto max-h-[280px] border rounded">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 z-10 bg-muted/90">
+                      <tr>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap">名称</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap">类别</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap">中心点</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {areaResults.slice(0, 50).map((r) => {
+                        const catLabel = AREA_CATEGORY_LABELS[r.category ?? "other"] ?? "其他设施";
+                        const centerText = r.center
+                          ? `${r.center.lat.toFixed(5)}, ${r.center.lng.toFixed(5)}`
+                          : "—";
+                        return (
+                          <tr key={r.osmId} className="border-t hover:bg-muted/50">
+                            <td className="px-2 py-1.5 max-w-[140px] truncate font-medium" title={r.name}>
+                              {r.name || "未命名"}
+                            </td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">
+                              <Badge variant="outline" className="text-[10px] h-4">{catLabel}</Badge>
+                            </td>
+                            <td className="px-2 py-1.5 font-mono text-muted-foreground whitespace-nowrap">
+                              {centerText}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {areaResults.length > 50 && (
+                    <p className="text-center py-1.5 text-xs text-muted-foreground border-t bg-muted/50">
+                      仅显示前 50 条，共 {areaResults.length} 条
+                    </p>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}

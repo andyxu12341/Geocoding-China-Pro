@@ -76,36 +76,56 @@ export interface AreaResult {
 }
 
 export const AREA_CATEGORY_COLORS: Record<string, string> = {
-  residential: "#F5D0A9",
-  commercial: "#F78181",
-  retail: "#FA5858",
-  industrial: "#D8D8D8",
-  park: "#A9F5A9",
-  leisure: "#81F781",
-  school: "#F5A9E1",
-  university: "#F5A9E1",
-  hospital: "#F7819F",
-  cemetery: "#E8D8C8",
-  construction: "#BDBDBD",
-  water: "#82B1FF",
-  forest: "#388E3C",
-  farmland: "#E8F5E9",
-  military: "#8D6E63",
-  office: "#5C6BC0",
-  warehouse: "#78909C",
-  building: "#58ACFA",
-  default: "#A4A4A4",
+  residential: "#60A5FA",
+  commercial: "#F87171",
+  office: "#FB923C",
+  education: "#A78BFA",
+  medical: "#F472B6",
+  public: "#34D399",
+  religious: "#FBBF24",
+  park: "#4ADE80",
+  other: "#9CA3AF",
+};
+
+export const AREA_CATEGORY_LABELS: Record<string, string> = {
+  residential: "住宅与一般建筑",
+  commercial: "商业服务",
+  office: "办公与工业",
+  education: "教育科研",
+  medical: "医疗卫生",
+  public: "公共设施",
+  religious: "宗教设施",
+  park: "公园绿地",
+  other: "其他设施",
 };
 
 export function getOSMCategory(tags: Record<string, string>): string {
-  return (
+  const raw =
     tags.landuse ||
     tags.leisure ||
     tags.amenity ||
     tags.building ||
     tags.boundary ||
-    "default"
-  );
+    "other";
+
+  if (raw === "no" || raw === "yes" || !raw) return "other";
+
+  if (["residential", "apartments", "house", "detached", "terrace"].includes(raw)) return "residential";
+  if (["commercial", "retail", "bank", "restaurant", "cafe", "bar", "fast_food", "food_court", "cinema", "theatre", "nightclub", "casino", "shop", "supermarket"].includes(raw)) return "commercial";
+  if (["office", "industrial", "warehouse", "manufacture"].includes(raw)) return "office";
+  if (["university", "school", "college", "kindergarten", "library", "bookshop", "driving_school"].includes(raw)) return "education";
+  if (["hospital", "clinic", "doctors", "pharmacy", "dentist", "veterinary", "social_facility", "nursing_home"].includes(raw)) return "medical";
+  if (["police", "government", "public_building", "courthouse", "prison", "fire_station", "post_office"].includes(raw)) return "public";
+  if (["place_of_worship"].includes(raw)) return "religious";
+  if (["park", "pitch", "playground", "track", "sports_centre", "swimming_pool", "leisure"].includes(raw)) return "park";
+  if (["cemetery", "grave_yard"].includes(raw)) return "other";
+  if (["construction"].includes(raw)) return "other";
+  if (["water", "river", "lake", "pond", "reservoir", "stream", "wetland"].includes(raw)) return "other";
+  if (["forest", "farmland", "grass", "meadow", "orchard", "vineyard"].includes(raw)) return "park";
+  if (["military"].includes(raw)) return "other";
+  if (["building"].includes(raw) || raw.length > 0) return "residential";
+
+  return "other";
 }
 
 export interface BatchProgress {
@@ -675,8 +695,17 @@ export async function queryOSMArea(
     const polygon = parseOverpassGeometry(el);
     if (polygon.length < 3) continue;
 
-    const center = elementCenter(polygon);
     const tags = el.tags || {};
+    const raw =
+      tags.landuse ||
+      tags.leisure ||
+      tags.amenity ||
+      tags.building ||
+      tags.boundary ||
+      "";
+    if (raw === "no") continue;
+
+    const center = elementCenter(polygon);
     results.push({
       name: el.tags.name,
       type: areaType,
