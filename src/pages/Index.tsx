@@ -302,7 +302,6 @@ export default function Index() {
     } catch (err) {
       toast({ title: t("toast.parseError"), description: err instanceof Error ? err.message : t("toast.fileFormat"), variant: "destructive" });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, t]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {

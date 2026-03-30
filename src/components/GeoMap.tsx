@@ -162,7 +162,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     cleanupRectMode();
 
     if (polyHandlerRef.current) {
-      try { polyHandlerRef.current.disable(); } catch {}
+      try { polyHandlerRef.current.disable(); } catch (_e) { /* ignore */ }
       polyHandlerRef.current = null;
     }
     drawLayerRef.current.clearLayers();
@@ -180,6 +180,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     if (!callbacks.polyDone) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handler = new (L.Draw.Polygon as any)(map, {
       shapeOptions: {
         color: "#f59e0b",
@@ -240,11 +241,17 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: OSM_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
     const satLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: SAT_ATTR, maxZoom: 19 });
     const darkLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: DARK_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gaodeLayer = (L.tileLayer as any).chinaProvider("GaoDe.Normal.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gaodeSatLayer = (L.tileLayer as any).chinaProvider("GaoDe.Satellite.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const geoqLayer = (L.tileLayer as any).chinaProvider("Geoq.Normal.Map", { attribution: GEOQ_ATTR, maxZoom: 18 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const geoqBlueLayer = (L.tileLayer as any).chinaProvider("Geoq.Normal.PurplishBlue", { attribution: GEOQ_ATTR, maxZoom: 18 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tdtLayer = (L.tileLayer as any).chinaProvider("TianDiTu.Normal.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tdtSatLayer = (L.tileLayer as any).chinaProvider("TianDiTu.Satellite.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
 
     gaodeLayer.addTo(map);
