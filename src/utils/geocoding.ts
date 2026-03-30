@@ -303,14 +303,26 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ── Request cache (localStorage + TTL) ──
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_VERSION = "v2"; // increment to invalidate old pre-transform cache
+
+{
+  const staleKeys = Object.keys(localStorage).filter(k => k.startsWith("gc:") && !k.startsWith(`gc:${CACHE_VERSION}:`));
+  if (staleKeys.length > 0) {
+    staleKeys.forEach(k => localStorage.removeItem(k));
+    console.log(`[CacheFlush] 清除 ${staleKeys.length} 条旧缓存（坐标已洗白，重新查询以获取正确坐标）`);
+  }
+}
 
 function cacheGet(address: string, source: MapSource): GeocodeItem | null {
   try {
-    const raw = localStorage.getItem(`gc:${source}:${address}`);
-    if (!raw) return null;
+    const raw = localStorage.getItem(`gc:${CACHE_VERSION}:${source}:${address}`);
+    if (!raw) {
+      localStorage.removeItem(`gc:${source}:${address}`);
+      return null;
+    }
     const { item, ts } = JSON.parse(raw);
     if (Date.now() - ts > CACHE_TTL_MS) {
-      localStorage.removeItem(`gc:${source}:${address}`);
+      localStorage.removeItem(`gc:${CACHE_VERSION}:${source}:${address}`);
       return null;
     }
     return item;
@@ -322,7 +334,7 @@ function cacheGet(address: string, source: MapSource): GeocodeItem | null {
 function cacheSet(address: string, source: MapSource, item: GeocodeItem) {
   if (item.status === "success") {
     try {
-      localStorage.setItem(`gc:${source}:${address}`, JSON.stringify({ item, ts: Date.now() }));
+      localStorage.setItem(`gc:${CACHE_VERSION}:${source}:${address}`, JSON.stringify({ item, ts: Date.now() }));
     } catch { /* storage full — ignore */ }
   }
 }
