@@ -609,51 +609,51 @@ function buildBboxOverpassQuery(bbox: [number, number, number, number], type: Ar
 
 function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryType): string {
   const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
-  const filter = getAreaPolyFilter(type, polyStr);
+  const filter = getAreaPolyFilter(type);
   return `[out:json][timeout:50];(poly:"${polyStr}";${filter});out body geom;`;
 }
 
-function getAreaPolyFilter(type: AreaQueryType, polyStr: string): string {
+function getAreaPolyFilter(type: AreaQueryType): string {
   switch (type) {
     case "all":
       return [
-        `way["building"];relation["building"];`,
-        `way["landuse"="residential"];relation["landuse"="residential"];`,
-        `way["landuse"="commercial"];relation["landuse"="commercial"];`,
-        `way["landuse"="retail"];relation["landuse"="retail"];`,
-        `way["landuse"="industrial"];relation["landuse"="industrial"];`,
+        `way["building"];`,
+        `way["landuse"="residential"];`,
+        `way["landuse"="commercial"];`,
+        `way["landuse"="retail"];`,
+        `way["landuse"="industrial"];`,
         `way["landuse"="grass"];`,
         `way["landuse"="farmland"];`,
         `way["landuse"="forest"];`,
         `way["natural"="wood"];`,
-        `way["leisure"="park"];relation["leisure"="park"];`,
+        `way["leisure"="park"];`,
         `way["leisure"="nature_reserve"];`,
         `way["leisure"="pitch"];`,
         `way["leisure"="playground"];`,
-        `way["amenity"="university"];relation["amenity"="university"];`,
-        `way["amenity"="hospital"];relation["amenity"="hospital"];`,
-        `way["amenity"="school"];relation["amenity"="school"];`,
+        `way["amenity"="university"];`,
+        `way["amenity"="hospital"];`,
+        `way["amenity"="school"];`,
         `relation["boundary"="administrative"];`,
       ].join("");
     case "building":
-      return `way["building"];relation["building"];`;
+      return `way["building"];`;
     case "landuse":
       return [
-        `way["landuse"="residential"];relation["landuse"="residential"];`,
-        `way["landuse"="commercial"];relation["landuse"="commercial"];`,
-        `way["landuse"="retail"];relation["landuse"="retail"];`,
-        `way["landuse"="industrial"];relation["landuse"="industrial"];`,
+        `way["landuse"="residential"];`,
+        `way["landuse"="commercial"];`,
+        `way["landuse"="retail"];`,
+        `way["landuse"="industrial"];`,
         `way["landuse"="grass"];`,
         `way["landuse"="farmland"];`,
         `way["landuse"="forest"];`,
         `way["natural"="wood"];`,
-        `way["leisure"="park"];relation["leisure"="park"];`,
+        `way["leisure"="park"];`,
         `way["leisure"="nature_reserve"];`,
         `way["leisure"="pitch"];`,
         `way["leisure"="playground"];`,
-        `way["amenity"="university"];relation["amenity"="university"];`,
-        `way["amenity"="hospital"];relation["amenity"="hospital"];`,
-        `way["amenity"="school"];relation["amenity"="school"];`,
+        `way["amenity"="university"];`,
+        `way["amenity"="hospital"];`,
+        `way["amenity"="school"];`,
       ].join("");
     case "admin":
       return `relation["boundary"="administrative"];`;
