@@ -628,7 +628,17 @@ interface NominatimPlace {
   display_name: string;
 }
 
-async function searchNominatim(keyword: string, signal?: AbortSignal): Promise<NominatimPlace | null> {
+export interface NominatimResult {
+  lat: string;
+  lon: string;
+  osm_id?: string;
+  osm_type?: string;
+  osm_id_num?: number;
+  boundingbox?: [string, string, string, string];
+  display_name: string;
+}
+
+export async function searchNominatim(keyword: string, signal?: AbortSignal): Promise<NominatimResult | null> {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(keyword)}&format=json&limit=1&addressdetails=1`;
   const res = await fetch(url, {
     headers: {
@@ -639,10 +649,20 @@ async function searchNominatim(keyword: string, signal?: AbortSignal): Promise<N
   });
   if (!res.ok) return null;
   const data = await res.json() as NominatimPlace[];
-  return data.length > 0 ? data[0] : null;
+  if (data.length === 0) return null;
+  const first = data[0];
+  return {
+    lat: first.lat,
+    lon: first.lon,
+    osm_id: first.osm_id,
+    osm_type: first.osm_type,
+    osm_id_num: first.osm_id ? parseInt(first.osm_id, 10) : undefined,
+    boundingbox: first.boundingbox,
+    display_name: first.display_name,
+  };
 }
 
-function osmToAreaId(osmType: string, osmId: string): string {
+export function osmToAreaId(osmType: string, osmId: string): string {
   const id = parseInt(osmId, 10);
   if (osmType === "R") return String(3600000000 + id);
   if (osmType === "W") return String(2400000000 + id);
