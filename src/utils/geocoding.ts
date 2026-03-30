@@ -600,8 +600,8 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "area.targetArea"): st
       ].join("");
     case "admin":
       return [
-        `relation["boundary"="administrative"](${areaRef});`,
-        `way["boundary"="administrative"](${areaRef});`,
+        `relation["boundary"="administrative"]["admin_level"~"6|8|10"](${areaRef});`,
+        `way["boundary"="administrative"]["admin_level"~"6|8|10"](${areaRef});`,
       ].join("");
   }
 }
@@ -662,8 +662,8 @@ function getAreaPolyFilter(type: AreaQueryType): string {
       ].join("");
     case "admin":
       return [
-        `relation["boundary"="administrative"];`,
-        `way["boundary"="administrative"];`,
+        `relation["boundary"="administrative"]["admin_level"~"6|8|10"];`,
+        `way["boundary"="administrative"]["admin_level"~"6|8|10"];`,
       ].join("");
   }
 }
@@ -733,7 +733,10 @@ export async function queryOSMArea(
       break;
     } catch (err) {
       lastErr = err instanceof Error ? err : new Error(String(err));
-      if (i < OVERPASS_ENDPOINTS.length - 1) continue;
+      const isLastEndpoint = i >= OVERPASS_ENDPOINTS.length - 1;
+      if (!isLastEndpoint) {
+        console.warn(`[Overpass] 节点 ${endpoint} 请求失败（${lastErr.message}），尝试下一个节点...`);
+      }
     }
   }
 
