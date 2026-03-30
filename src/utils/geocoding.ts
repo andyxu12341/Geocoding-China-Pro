@@ -3,6 +3,8 @@
 // Supports: Gaode (Amap) · Baidu · OpenStreetMap (Nominatim)
 // ============================================================
 
+import { gcj02towgs84, bd09towgs84, wgs84togcj02, transformBbox } from "./coordTransform";
+
 export type MapSource = "gaode" | "baidu" | "osm";
 
 export type AreaQueryType =
@@ -1183,8 +1185,8 @@ export async function queryGaodePOI(
     url.searchParams.set("citylimit", "true");
   }
   if (bbox) {
-    const [south, west, north, east] = bbox;
-    url.searchParams.set("rect", `${west},${south},${east},${north}`);
+    const [gcjSouth, gcjWest, gcjNorth, gcjEast] = transformBbox(bbox, wgs84togcj02);
+    url.searchParams.set("rect", `${gcjWest},${gcjSouth},${gcjEast},${gcjNorth}`);
   }
 
   const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
@@ -1206,12 +1208,13 @@ export async function queryGaodePOI(
   return data.pois
     .filter(p => p.location)
     .map(p => {
-      const [lng, lat] = p.location.split(",");
+      const [gcjLng, gcjLat] = p.location.split(",").map(Number);
+      const [lng, lat] = gcj02towgs84(gcjLng, gcjLat);
       return {
         name: p.name,
         type: poiType,
-        lat: parseFloat(lat),
-        lng: parseFloat(lng),
+        lat,
+        lng,
         categoryName,
         color,
         tags: {
@@ -1274,17 +1277,20 @@ export async function queryBaiduPOI(
 
   return data.results
     .filter(r => r.location)
-    .map(r => ({
-      name: r.name,
-      type: poiType,
-      lat: r.location.lat,
-      lng: r.location.lng,
-      categoryName,
-      color,
-      tags: { address: r.address || "" },
-      address: r.address,
-      source: "baidu" as const,
-    }));
+    .map(r => {
+      const [lng, lat] = bd09towgs84(r.location.lng, r.location.lat);
+      return {
+        name: r.name,
+        type: poiType,
+        lat,
+        lng,
+        categoryName,
+        color,
+        tags: { address: r.address || "" },
+        address: r.address,
+        source: "baidu" as const,
+      };
+    });
 }
 
 function elementCenter(coords: number[][]): { lat: number; lng: number } {
