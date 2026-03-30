@@ -6,28 +6,29 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub Stars](https://img.shields.io/github/stars/andyxu12341/Geocoding-China-Pro)](https://github.com/andyxu12341/Geocoding-China-Pro/stargazers)
+[![version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/andyxu12341/Geocoding-China-Pro/releases)
 
 ---
 
 ## 核心功能 | Core Features
 
 ### Tab A: 坐标转换 | Point Geocoding
+- **Search-First 智能引擎 / Search-First Engine** — POI 文本搜索优先，信任高德原生排序，地名编码 API 作为兜底。无需手写质量判断逻辑。
 - **多源地理编码 / Multi-source Geocoding** — 高德地图、百度地图、OpenStreetMap（均已内置）
-- **Search-First 智能引擎 / Search-First Engine** — POI 文本搜索优先，关键词提取重试，城市中心兜底
 - **跨区域校验 / Cross-region Validation** — 自动验证经纬度与地址省份/城市是否匹配
 - **批量处理 / Batch Processing** — 支持 CSV/Excel 大规模数据分批并发
 - **智能重试 / Smart Retry** — 失败自动重试，支持断点续传
 - **一小时缓存 / Request Cache** — 相同请求 1 小时内直接返回缓存结果
 - **多候选选择 / Multi-candidate Selection** — 高德返回多个结果时可选最佳匹配
 - **自定义分类着色 / Custom Category Coloring** — 按分类字段彩色标注坐标点
-- **导出 GeoJSON / KML / PNG** — 支持 QGIS / ArcGIS / Google Earth
+- **导出 GeoJSON / KML / CSV / PNG** — 支持 QGIS / ArcGIS / Google Earth
 
 ### Tab B: 面域 & POI 提取 | Polygon & POI Extraction
 - **OpenStreetMap 面域查询 / OSM Polygon Query** — 基于 Overpass API 查询建筑轮廓、城市功能区、行政边界
 - **POI 点位查询 / POI Point Query** — 支持 OSM、高德、百度三套数据源
   - **OSM (Overpass API)** — 查询 OSM node 数据，免费无 Key
   - **高德 POI** — 精细 POI 分类（官方分类代码），需高德 Web 服务 Key
-  - **百度 POI** — 精细 POI 分类，需百度浏览器端 AK
+  - **百度 POI** — 精细 POI 分类（v3 API），需百度浏览器端 AK
 - **坐标自动转换 / Coordinate Auto-transform** — 高德 GCJ-02 / 百度 BD-09 坐标自动转换为 WGS-84，确保与 GIS 软件无缝对接
 - **语义搜索 / Semantic Search** — 输入地名/POI/行政区名称，通过 Nominatim 定位后提取周边面域或 POI
 - **矩形框选 / Two-Click Rectangle** — 地图上点击两个对角顶点，自动成框并提取框内数据
@@ -38,6 +39,7 @@
 
 ### 地图可视化 | Map Visualization
 - **7 种底图 / 7 Tile Layers** — 高德、OpenStreetMap、Esri 卫星、高德卫星、天地图（街景/卫星）、CARTO 暗色
+- **底图自动对齐 / Basemap Auto-alignment** — 检测高德底图激活状态，WGS-84 数据自动转换为 GCJ-02，彻底消除 ~300-500m 坐标漂移
 - **分类图例 / Category Legend** — 按实际渲染颜色聚合显示，无冗余
 - **自动聚焦 / Auto-fit** — 查询结果自动缩放至所有坐标范围
 - **实时进度条 / Real-time Progress** — 显示处理进度、成功/失败计数
@@ -54,6 +56,7 @@
 npm install
 npm run dev    # 开发服务器 / Dev server → http://localhost:8083
 npm run build  # 构建生产版本 / Build for production
+npm run release  # 发布新版本（SemVer） / Release new version
 ```
 
 ---
@@ -80,10 +83,12 @@ npm run build  # 构建生产版本 / Build for production
 - **构建工具 / Build**: Vite
 - **UI 组件 / UI**: shadcn/ui (Radix UI)
 - **地图库 / Map**: Leaflet + leaflet-draw + leaflet.chinatmsproviders
+- **坐标转换 / Coordinate Transform**: gcoord（GCJ-02 / BD-09 ⇄ WGS-84）
 - **样式 / Styling**: Tailwind CSS
 - **数据处理 / Data**: PapaParse, XLSX
 - **国际化 / i18n**: i18next + react-i18next
 - **动画 / Animation**: Framer Motion
+- **自动化发布 / Release**: release-it + conventional-changelog
 
 ---
 
@@ -94,19 +99,19 @@ src/
 ├── pages/
 │   └── Index.tsx              # 主页面 | Main page
 ├── components/
-│   ├── GeoMap.tsx             # 地图组件（Leaflet 原生）| Map component (raw Leaflet)
-│   ├── GeocodingPanel.tsx    # Tab A 坐标转换面板 | Tab A geocoding panel
+│   ├── GeoMap.tsx             # 地图组件（Leaflet 原生，含底图对齐）| Map component with basemap auto-alignment
+│   ├── GeocodingPanel.tsx     # Tab A 坐标转换面板 | Tab A geocoding panel
 │   ├── AreaQueryPanel.tsx     # Tab B 面域/POI 提取面板 | Tab B extraction panel
-│   ├── ResultsSection.tsx      # 统一结果表格 | Unified results table
-│   ├── HelpDialog.tsx           # 新手引导对话框 | Onboarding help dialog
+│   ├── ResultsSection.tsx     # 统一结果表格 | Unified results table
+│   ├── HelpDialog.tsx         # 新手引导对话框 | Onboarding help dialog
 │   └── ui/                   # shadcn/ui 组件库
 ├── hooks/
 │   ├── useGeocoding.ts        # 坐标转换 Hook | Geocoding hook
 │   └── useOverpassQuery.ts    # 面域/POI 查询 Hook | Overpass query hook
 ├── utils/
-│   ├── geocoding.ts           # 地理编码 + Overpass QL 查询 | Geocoding + Overpass QL
+│   ├── geocoding.ts          # 地理编码 + Overpass QL 查询 | Geocoding + Overpass QL
 │   ├── coordTransform.ts      # GCJ-02/BD-09 ⇄ WGS-84 坐标转换 | Coordinate transform
-│   └── exportUtils.ts         # 导出 CSV / GeoJSON / KML | Export utilities
+│   └── exportUtils.ts        # 导出 CSV / GeoJSON / KML | Export utilities
 ├── i18n/
 │   └── locales/              # 翻译文件 zh.json / en.json
 └── lib/
@@ -118,6 +123,17 @@ src/
 ## 在线演示 | Live Demo
 
 🔗 https://andyxu12341.github.io/Geocoding-China-Pro/
+
+---
+
+## 版本发布 | Release
+
+发布遵循 SemVer，每次 push 自动触发：
+
+```bash
+npm run release   # 版本号+1 → CHANGELOG.md 更新 → GitHub Release 自动生成
+npm run release:dry  # 预览模式
+```
 
 ---
 
