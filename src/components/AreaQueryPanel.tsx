@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -61,10 +61,6 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const [areaType, setAreaType] = useState<AreaQueryType>("building");
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    geoMapRef.current?.cancelDraw();
-  }, [mode, geoMapRef]);
 
   const handleQuery = () => {
     if (debounceRef.current) return;
