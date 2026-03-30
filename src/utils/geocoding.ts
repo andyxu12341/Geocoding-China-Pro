@@ -435,7 +435,7 @@ function levelPriority(level: string | undefined): number {
  * Strip province/city/district prefixes from address to get core keywords.
  * "北京故宫博物院" → "故宫博物院"
  * "上海市东方明珠" → "东方明珠"
- * "北京市朝阳区某街道" → "某街道"
+ * "北京市" → "" (city-only input, no keywords)
  */
 function extractKeywords(address: string): string {
   return address
@@ -444,89 +444,187 @@ function extractKeywords(address: string): string {
     .trim();
 }
 
-// ── Candidate Ranking ──
-interface ScoredCandidate {
-  lng: string;
-  lat: string;
-  formattedAddress: string;
-  province: string;
-  city: string | undefined;
-  district: string | undefined;
-  level: string;
-  score: number; // lower = better
+
+
+// ─────────────────────────────────────────────────────────────────
+// Search-First Geocoding Engine (V3)
+// Core principle: ALWAYS start with POI text search.
+// Only fall back to geocoding API when POI returns nothing useful.
+// ─────────────────────────────────────────────────────────────────
+
+type POIQualityLevel = "poi" | "street" | "city" | "unknown";
+
+interface POIResultWithQuality {
+  item: GeocodeItem;
+  qualityLevel: POIQualityLevel;
 }
 
 /**
- * Score and sort geocode candidates by specificity + keyword relevance.
- * Priority: POI > street > building > district > city > province
- * Tie-break: favor results whose name matches extracted keywords.
+ * Quality-check a POI search result:
+ * - POI/Interest Point level: named landmark (故宫, 东方明珠) → quality=poi
+ * - Street level: road + number → quality=street
+ * - City/District: city center or district → quality=city
  */
-function rankCandidates(
-  raw: Array<{
-    location: string;
-    formatted_address: string;
-    province: string;
-    city: string;
-    district?: string;
-    level?: string;
-  }>,
-  originalAddress: string,
-): ScoredCandidate[] {
-  const keywords = extractKeywords(originalAddress).toLowerCase();
+function qualityCheckPOI(poi: { name: string; location: string; address: string; type?: string }): POIQualityLevel {
+  const name = poi.name ?? "";
+  const addr = poi.address ?? "";
+  const combined = `${name} ${addr}`;
 
-  return raw
-    .filter(g => g.location)
-    .map(g => {
-      const [gcjLng, gcjLat] = g.location.split(",").map(Number);
+  // Named landmarks / landmarks / specific buildings → POI level
+  if (
+    /(博物院|塔|广场|大厦|中心|酒店|医院|学校|体育场|电影院|公园|车站|机场|大学|中学|小学|商场|超市|餐厅|饭店)/.test(combined) ||
+    /[一二三四五六七八九十零百千万]+[号楼栋座层]/ .test(combined) ||
+    name.length >= 3
+  ) {
+    return "poi";
+  }
+
+  // Road + number (e.g. "中关村大街1号") → street level
+  if (/[路街大道巷]+[号]/.test(combined)) {
+    return "street";
+  }
+
+  return "city";
+}
+
+/**
+ * Call Gaode v3/place/text with maximum quality settings.
+ * Returns all results with quality annotations.
+ */
+async function searchGaodePOI(
+  keyword: string,
+  apiKey: string,
+  region?: string,
+): Promise<Array<{ name: string; location: string; address: string; type: string; qualityLevel: POIQualityLevel }>> {
+  const url = new URL("https://restapi.amap.com/v3/place/text");
+  url.searchParams.set("keywords", keyword);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("offset", "5");
+  url.searchParams.set("page", "1");
+  url.searchParams.set("extensions", "all");
+  url.searchParams.set("output", "json");
+  if (region) { url.searchParams.set("city", region); url.searchParams.set("citylimit", "true"); }
+
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json() as {
+    status: string; info: string; infocode: string; count: string;
+    pois?: Array<{ name: string; location: string; address: string; type: string }>;
+  };
+
+  if (data.status !== "1" || !data.pois?.length) return [];
+
+  return data.pois
+    .filter(p => p.location)
+    .map(p => ({
+      name: p.name,
+      location: p.location,
+      address: p.address ?? "",
+      type: p.type ?? "",
+      qualityLevel: qualityCheckPOI(p),
+    }));
+}
+
+// Gaode (Amap) — Search-first geocoding engine
+async function geocodeGaode(address: string, apiKey: string, region?: string): Promise<GeocodeItem> {
+  // ── ALWAYS start with POI search (Step 1) ──
+  try {
+    const pois = await searchGaodePOI(address, apiKey, region);
+
+    if (pois.length > 0) {
+      // Pick the best quality result (POI > street > city)
+      const priority: Record<POIQualityLevel, number> = { poi: 1, street: 2, city: 3, unknown: 4 };
+      pois.sort((a, b) => priority[a.qualityLevel] - priority[b.qualityLevel]);
+      const best = pois[0];
+
+      const [gcjLng, gcjLat] = best.location.split(",").map(Number);
       const [wgsLng, wgsLat] = gcj02towgs84(gcjLng, gcjLat);
-      const lvl = g.level ?? "";
-      const baseScore = levelPriority(lvl);
+      const formattedAddress = best.address && best.address !== "[]"
+        ? `${best.name} (${best.address})`
+        : best.name;
 
-      // Bonus: if the formatted address contains our keywords, reduce score
-      const addrLower = (g.formatted_address ?? "").toLowerCase();
-      const keywordBonus = keywords && addrLower.includes(keywords) ? -10 : 0;
+      console.log(
+        `[定位引擎] 模式: 搜索优先 | 命中类型: ${best.qualityLevel} | ` +
+        `名称: "${best.name}" | 最终坐标: [${wgsLng.toFixed(6)}, ${wgsLat.toFixed(6)}]`
+      );
 
+      // If best result is POI or street level → done
+      if (best.qualityLevel !== "city") {
+        return {
+          address,
+          lng: wgsLng.toFixed(6),
+          lat: wgsLat.toFixed(6),
+          formattedAddress,
+          source: "gaode" as const,
+          status: "success" as const,
+        };
+      }
+
+      // All results are city/district level → try extracting keywords for another pass
+      const keywords = extractKeywords(address);
+      if (keywords.length >= 2 && keywords !== address) {
+        console.log(`[定位引擎] POI 搜索全为城市级，尝试关键词重搜: "${keywords}"`);
+        const refined = await searchGaodePOI(keywords, apiKey, region);
+        const good = refined.find(p => p.qualityLevel !== "city");
+        if (good) {
+          const [gLng, gLat] = good.location.split(",").map(Number);
+          const [wL, wLa] = gcj02towgs84(gLng, gLat);
+          const fmt = good.address && good.address !== "[]" ? `${good.name} (${good.address})` : good.name;
+          console.log(
+            `[定位引擎] 模式: 搜索优先 | 命中类型: ${good.qualityLevel} | ` +
+            `名称: "${good.name}" | 最终坐标: [${wL.toFixed(6)}, ${wLa.toFixed(6)}]`
+          );
+          return { address, lng: wL.toFixed(6), lat: wLa.toFixed(6), formattedAddress: fmt, source: "gaode", status: "success" };
+        }
+      }
+
+      // Still only city results → fall through to geocoding API
+      console.log(`[定位引擎] POI 搜索无具体结果，触发降级策略（Step 2: Geocoding API）`);
+    } else {
+      console.log(`[定位引擎] POI 搜索无结果，触发降级策略（Step 2: Geocoding API）`);
+    }
+
+    // ── Step 2: Fall back to geocoding API ──
+    const geoResult = await geocodeGaodeFallback(address, apiKey, region);
+    if (geoResult) return geoResult;
+
+    // Last resort: if geocoding also fails, return city center from POI results if available
+    if (pois.length > 0) {
+      const fallback = pois[0];
+      const [gcjLng, gcjLat] = fallback.location.split(",").map(Number);
+      const [wgsLng, wgsLat] = gcj02towgs84(gcjLng, gcjLat);
+      console.log(
+        `[定位引擎] 模式: 搜索兜底 | 命中类型: city | ` +
+        `名称: "${fallback.name}" | 最终坐标: [${wgsLng.toFixed(6)}, ${wgsLat.toFixed(6)}] (区域中心)`
+      );
       return {
+        address,
         lng: wgsLng.toFixed(6),
         lat: wgsLat.toFixed(6),
-        formattedAddress: g.formatted_address,
-        province: g.province,
-        city: typeof g.city === "string" ? g.city : undefined,
-        district: g.district,
-        level: lvl,
-        score: baseScore + keywordBonus,
-      } as ScoredCandidate;
-    })
-    .sort((a, b) => a.score - b.score);
+        formattedAddress: fallback.name,
+        source: "gaode" as const,
+        status: "success" as const,
+        warning: "已定位到区域中心，请提供更具体地址",
+      };
+    }
+
+    return { address, status: "failed", source: "gaode", error: "未找到有效坐标" };
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "未知错误";
+    return { address, status: "failed", source: "gaode", error: msg };
+  }
 }
 
 /**
- * Determine whether a candidate is "too generic" (city or province level).
+ * Step 2 fallback: call the geocoding (address parsing) API.
+ * Used only when POI search returns no specific results.
  */
-function isTooGeneric(c: ScoredCandidate): boolean {
-  return levelPriority(c.level) >= levelPriority("city");
-}
-
-/**
- * Extract location hint from the input address using full-string regex scan.
- * Returns the first match, or null if nothing found.
- */
-function extractLocationHint(address: string): string | null {
-  const normalized = address.replace(/[（）]/g, m => m === "（" ? "(" : ")");
-  const match = normalized.match(PROVINCE_REGEX);
-  return match ? match[1] : null;
-}
-
-// Gaode (Amap) — Geocode API with smart ranking
-async function geocodeGaodePrimary(address: string, apiKey: string, region?: string): Promise<{
-  item: GeocodeItem;
-  candidates: ScoredCandidate[];
-  usedKeywords?: string;
-}> {
+async function geocodeGaodeFallback(address: string, apiKey: string, region?: string): Promise<GeocodeItem | null> {
   let url = `https://restapi.amap.com/v3/geocode/geo?key=${encodeURIComponent(apiKey)}&address=${encodeURIComponent(address)}&output=json`;
   if (region) url += `&city=${encodeURIComponent(region)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) return null;
   const data = await res.json() as {
     status: string; info: string;
     geocodes?: Array<{
@@ -538,134 +636,45 @@ async function geocodeGaodePrimary(address: string, apiKey: string, region?: str
       level?: string;
     }>;
   };
-  if (data.status !== "1" || !data.geocodes?.length) {
-    console.log(`[GaodePrimary] address="${address}" status=${data.status} info=${data.info}`);
-    return { item: { address, status: "failed", source: "gaode", error: data.info || "匹配失败: 未找到有效坐标" }, candidates: [] };
-  }
+  if (data.status !== "1" || !data.geocodes?.length) return null;
 
-  const ranked = rankCandidates(data.geocodes, address);
-  if (ranked.length === 0) {
-    return { item: { address, status: "failed", source: "gaode", error: "匹配失败: 返回坐标为空" }, candidates: [] };
-  }
+  // Rank results by specificity
+  const ranked = data.geocodes
+    .filter(g => g.location)
+    .map(g => {
+      const [gcjLng, gcjLat] = g.location.split(",").map(Number);
+      const [wgsLng, wgsLat] = gcj02towgs84(gcjLng, gcjLat);
+      const lvl = g.level ?? "";
+      return {
+        location: g,
+        lng: wgsLng.toFixed(6),
+        lat: wgsLat.toFixed(6),
+        level: lvl,
+        score: levelPriority(lvl),
+      };
+    })
+    .sort((a, b) => a.score - b.score);
+
+  if (ranked.length === 0) return null;
 
   const top = ranked[0];
+  const lvl = top.level;
+  const isGeneric = levelPriority(lvl) >= levelPriority("city");
+
   console.log(
-    `[Audit] 原始输入: "${address}" → 匹配等级: ${top.level} (score=${top.score}) → 脱密后坐标: [${top.lng}, ${top.lat}] — ${top.formattedAddress}`
+    `[定位引擎] 模式: Geocoding降级 | 命中类型: ${lvl} | ` +
+    `名称: "${top.location.formatted_address}" | 最终坐标: [${top.lng}, ${top.lat}]`
   );
+
   return {
-    item: {
-      address,
-      lng: top.lng,
-      lat: top.lat,
-      formattedAddress: top.formattedAddress,
-      source: "gaode" as const,
-      status: "success" as const,
-      candidates: ranked.map(c => ({ lng: c.lng, lat: c.lat, formattedAddress: c.formattedAddress, province: c.province, city: c.city, district: c.district, level: c.level })),
-    },
-    candidates: ranked,
+    address,
+    lng: top.lng,
+    lat: top.lat,
+    formattedAddress: top.location.formatted_address,
+    source: "gaode" as const,
+    status: "success" as const,
+    warning: isGeneric ? "已定位到区域中心" : undefined,
   };
-}
-
-// Gaode (Amap) — Dedicated POI search API (used as Step 2)
-async function geocodeGaodePOI(keyword: string, apiKey: string, region?: string): Promise<GeocodeItem | null> {
-  const keywords = extractKeywords(keyword) || keyword;
-  const url = new URL("https://restapi.amap.com/v3/place/text");
-  url.searchParams.set("keywords", keywords);
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("offset", "5");
-  url.searchParams.set("page", "1");
-  url.searchParams.set("output", "json");
-  if (region) { url.searchParams.set("city", region); url.searchParams.set("citylimit", "true"); }
-
-  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json() as {
-    status: string; info: string; infocode: string;
-    pois?: Array<{ name: string; location: string; address: string; type: string }>;
-  };
-
-  if (data.status !== "1" || !data.pois?.length) return null;
-
-  // Pick first POI that is not a city/district level result
-  for (const poi of data.pois) {
-    if (!poi.location) continue;
-    const [gcjLng, gcjLat] = poi.location.split(",").map(Number);
-    const [lng, lat] = gcj02towgs84(gcjLng, gcjLat);
-    const formattedAddress = poi.address && poi.address !== "[]" ? `${poi.name} (${poi.address})` : poi.name;
-    console.log(`[Audit] POI 搜索关键词: "${keywords}" → POI: "${poi.name}" → 脱密后坐标: [${lng.toFixed(6)}, ${lat.toFixed(6)}]`);
-    return {
-      address: keyword,
-      lng: lng.toFixed(6),
-      lat: lat.toFixed(6),
-      formattedAddress,
-      source: "gaode" as const,
-      status: "success" as const,
-    };
-  }
-  return null;
-}
-
-/**
- * Smart 3-Step Geocoding Engine for Gaode (Amap):
- *
- * Step 1 — Geocode API + Ranked Candidates:
- *   Call geocode API, rank all results by specificity
- *   (POI > street > building > district > city > province).
- *   If top result is POI/street/building level → DONE.
- *
- * Step 2 — Keyword POI Search (triggered when top is too generic):
- *   If top result is city/district level, extract core keywords from
- *   the original address and run dedicated POI search.
- *   If POI search finds a better result → DONE.
- *
- * Step 3 — City Center Fallback:
- *   Only if both above fail → return city center with warning flag.
- */
-async function geocodeGaode(address: string, apiKey: string, region?: string): Promise<GeocodeItem> {
-  // ── Step 1: Geocode API with smart ranking ──
-  try {
-    const primary = await geocodeGaodePrimary(address, apiKey, region);
-    if (primary.item.status === "failed") throw new Error(primary.item.error);
-
-    const top = primary.candidates[0];
-    if (!top) throw new Error("无候选结果");
-
-    // If top is specific enough (POI / street / building level), use it
-    if (!isTooGeneric(top)) {
-      console.log(`[SmartGeocode] Step 1 ✓ "${address}" → "${top.formattedAddress}" (level=${top.level})`);
-      return primary.item;
-    }
-
-    // ── Step 2: POI keyword search (top is too generic: city/district level) ──
-    const keywords = extractKeywords(address);
-    if (keywords.length >= 2) {
-      console.log(`[SmartGeocode] Step 1 ✗ top="${top.formattedAddress}" (level=${top.level}) — 触发 Step 2 关键词 POI 搜索: "${keywords}"`);
-      const poiResult = await geocodeGaodePOI(keywords, apiKey, region);
-      if (poiResult) {
-        console.log(`[SmartGeocode] Step 2 ✓ "${keywords}" → "${poiResult.formattedAddress}"`);
-        return poiResult;
-      }
-      console.log(`[SmartGeocode] Step 2 ✗ 关键词 POI 无结果`);
-    } else {
-      console.log(`[SmartGeocode] Step 1 ✗ top="${top.formattedAddress}" (level=${top.level}) — 关键词过短，跳过 Step 2`);
-    }
-
-    // ── Step 3: City center fallback ──
-    console.log(`[SmartGeocode] Step 3 ⚠️ 全部降级，回退到: "${top.formattedAddress}" (level=${top.level})`);
-    return {
-      ...primary.item,
-      warning: "已定位到区域中心，如需精确位置请提供更具体地址",
-    };
-
-  } catch (err) {
-    // Last resort: try POI search with original address
-    try {
-      const poiResult = await geocodeGaodePOI(address, apiKey, region);
-      if (poiResult) return poiResult;
-    } catch { /* fall through */ }
-    const msg = err instanceof Error ? err.message : "未知错误";
-    return { address, status: "failed", source: "gaode", error: msg };
-  }
 }
 
 // Baidu
