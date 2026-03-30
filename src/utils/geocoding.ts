@@ -629,75 +629,49 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): s
 
 function buildBboxOverpassQuery(bbox: [number, number, number, number], type: AreaQueryType): string {
   const [south, west, north, east] = bbox;
-  const filter = getAreaTypeFilter(type);
+  // Overpass bbox format: (south,west,north,east)
+  const bboxStr = `${south},${west},${north},${east}`;
+  const filter = getAreaTypeFilter(type, bboxStr);
   return `[out:json][timeout:900];(${filter});out geom;`;
 }
 
 function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryType): string {
+  // Overpass poly format: space-separated "lat lon lat lon ..."
   const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
-  const filter = getAreaPolyFilter(type);
-  return `[out:json][timeout:900];(poly:"${polyStr}";${filter});out geom;`;
+  const polyRef = `poly:"${polyStr}"`;
+  const filter = getAreaTypeFilter(type, polyRef);
+  return `[out:json][timeout:900];(${filter});out geom;`;
 }
 
-function getAreaPolyFilter(type: AreaQueryType): string {
-  switch (type) {
-    case "all":
-      return [
-        `way["building"];`,
-        `way["landuse"="residential"];`,
-        `way["landuse"="commercial"];`,
-        `way["landuse"="retail"];`,
-        `way["landuse"="industrial"];`,
-        `way["landuse"="grass"];`,
-        `way["landuse"="farmland"];`,
-        `way["landuse"="forest"];`,
-        `way["natural"="wood"];`,
-        `way["leisure"="park"];`,
-        `way["leisure"="nature_reserve"];`,
-        `way["leisure"="pitch"];`,
-        `way["leisure"="playground"];`,
-        `way["amenity"="university"];`,
-        `way["amenity"="hospital"];`,
-        `way["amenity"="school"];`,
-        `relation["boundary"="administrative"];`,
-      ].join("");
-    case "building":
-      return `way["building"];`;
-    case "landuse":
-      return [
-        `way["landuse"="residential"];`,
-        `way["landuse"="commercial"];`,
-        `way["landuse"="retail"];`,
-        `way["landuse"="industrial"];`,
-        `way["landuse"="grass"];`,
-        `way["landuse"="farmland"];`,
-        `way["landuse"="forest"];`,
-        `way["natural"="wood"];`,
-        `way["leisure"="park"];`,
-        `way["leisure"="nature_reserve"];`,
-        `way["leisure"="pitch"];`,
-        `way["leisure"="playground"];`,
-        `way["amenity"="university"];`,
-        `way["amenity"="hospital"];`,
-        `way["amenity"="school"];`,
-      ].join("");
-    case "admin":
-      return [
-        `relation["boundary"="administrative"]["admin_level"="2"];`,
-        `relation["boundary"="administrative"]["admin_level"="4"];`,
-        `relation["boundary"="administrative"]["admin_level"="6"];`,
-        `relation["boundary"="administrative"]["admin_level"="8"];`,
-        `way["boundary"="administrative"]["admin_level"="2"];`,
-        `way["boundary"="administrative"]["admin_level"="4"];`,
-        `way["boundary"="administrative"]["admin_level"="6"];`,
-        `way["boundary"="administrative"]["admin_level"="8"];`,
-      ].join("");
-  }
-}
+// getAreaPolyFilter removed — unified into getAreaTypeFilter with areaRef param
 
 function parseOverpassGeometry(element: OverpassElement): number[][] {
-  if (!element.geometry) return [];
-  return element.geometry.map(g => [g.lon, g.lat]);
+  // For ways: geometry is directly on the element
+  if (element.geometry && element.geometry.length > 0) {
+    return element.geometry.map(g => [g.lon, g.lat]);
+  }
+  // For relations with out geom: geometry is on members
+  if (element.members) {
+    const coords: number[][] = [];
+    for (const member of element.members) {
+      if (member.role === "outer" && (member as any).geometry) {
+        for (const g of (member as any).geometry) {
+          coords.push([g.lon, g.lat]);
+        }
+      }
+    }
+    if (coords.length > 0) return coords;
+    // Fallback: any member with geometry
+    for (const member of element.members) {
+      if ((member as any).geometry) {
+        for (const g of (member as any).geometry) {
+          coords.push([g.lon, g.lat]);
+        }
+      }
+    }
+    return coords;
+  }
+  return [];
 }
 
 export async function queryOSMArea(

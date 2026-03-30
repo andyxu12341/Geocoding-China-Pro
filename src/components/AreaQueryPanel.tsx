@@ -15,6 +15,7 @@ import { useOverpassQuery } from "@/hooks/useOverpassQuery";
 import {
   type AreaQueryType,
   type AreaQueryMode,
+  type AreaResult,
   AREA_TYPE_LABELS,
 } from "@/utils/geocoding";
 import type { GeoMapHandle } from "@/components/GeoMap";

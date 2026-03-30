@@ -22,6 +22,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
@@ -185,7 +186,7 @@ export default function Index() {
   const geo = useGeocoding();
   const results = geo.results;
   const isDone = geo.isDone;
-  const { completed, total, elapsedMs, isProcessing } = geo;
+  const { completed, total, elapsedMs, isProcessing, setResults, setIsDone, setTotal, setCompleted } = geo;
 
   // Cancel dialog
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -446,7 +447,7 @@ export default function Index() {
 
     let addressToCategory: Map<string, string> | undefined;
     if (categoryColumn && fileData.length > 0) {
-      addressToCategory = new Map();
+      addressToCategory = new globalThis.Map() as Map<string, string>;
       fileData.forEach(row => {
         const addr = row[selectedColumn]?.trim();
         const cat = row[categoryColumn]?.trim();
@@ -477,7 +478,7 @@ export default function Index() {
 
     let addressToCategory: Map<string, string> | undefined;
     if (categoryColumn && fileData.length > 0) {
-      addressToCategory = new Map();
+      addressToCategory = new globalThis.Map() as Map<string, string>;
       fileData.forEach(row => {
         const addr = row[selectedColumn]?.trim();
         const cat = row[categoryColumn]?.trim();

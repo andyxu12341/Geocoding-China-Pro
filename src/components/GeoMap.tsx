@@ -179,7 +179,7 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
 
     if (!callbacks.polyDone) return;
 
-    const handler = new L.Draw.Polygon(map, {
+    const handler = new (L.Draw.Polygon as any)(map, {
       shapeOptions: {
         color: "#f59e0b",
         weight: 3,
@@ -239,12 +239,12 @@ export const GeoMap = forwardRef<GeoMapHandle, GeoMapProps>(({ markers, classNam
     const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: OSM_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
     const satLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: SAT_ATTR, maxZoom: 19 });
     const darkLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: DARK_ATTR, maxZoom: 19, crossOrigin: "anonymous" });
-    const gaodeLayer = L.tileLayer.chinaProvider("GaoDe.Normal.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
-    const gaodeSatLayer = L.tileLayer.chinaProvider("GaoDe.Satellite.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
-    const geoqLayer = L.tileLayer.chinaProvider("Geoq.Normal.Map", { attribution: GEOQ_ATTR, maxZoom: 18 });
-    const geoqBlueLayer = L.tileLayer.chinaProvider("Geoq.Normal.PurplishBlue", { attribution: GEOQ_ATTR, maxZoom: 18 });
-    const tdtLayer = L.tileLayer.chinaProvider("TianDiTu.Normal.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
-    const tdtSatLayer = L.tileLayer.chinaProvider("TianDiTu.Satellite.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
+    const gaodeLayer = (L.tileLayer as any).chinaProvider("GaoDe.Normal.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
+    const gaodeSatLayer = (L.tileLayer as any).chinaProvider("GaoDe.Satellite.Map", { attribution: GAODE_ATTR, maxZoom: 18 });
+    const geoqLayer = (L.tileLayer as any).chinaProvider("Geoq.Normal.Map", { attribution: GEOQ_ATTR, maxZoom: 18 });
+    const geoqBlueLayer = (L.tileLayer as any).chinaProvider("Geoq.Normal.PurplishBlue", { attribution: GEOQ_ATTR, maxZoom: 18 });
+    const tdtLayer = (L.tileLayer as any).chinaProvider("TianDiTu.Normal.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
+    const tdtSatLayer = (L.tileLayer as any).chinaProvider("TianDiTu.Satellite.Map", { attribution: TIANDITU_ATTR, maxZoom: 18 });
 
     gaodeLayer.addTo(map);
 

@@ -11,6 +11,10 @@ export interface UseGeocodingReturn {
   startGeocoding: (addresses: string[], config: GeocodingConfig, addressToCategory?: Map<string, string>) => void;
   stopGeocoding: () => void;
   reset: () => void;
+  setResults: React.Dispatch<React.SetStateAction<GeocodeItem[]>>;
+  setIsDone: React.Dispatch<React.SetStateAction<boolean>>;
+  setTotal: React.Dispatch<React.SetStateAction<number>>;
+  setCompleted: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export function useGeocoding(): UseGeocodingReturn {
@@ -78,5 +82,5 @@ export function useGeocoding(): UseGeocodingReturn {
     });
   }, []);
 
-  return { results, isProcessing, isDone, completed, total, elapsedMs, startGeocoding, stopGeocoding, reset };
+  return { results, isProcessing, isDone, completed, total, elapsedMs, startGeocoding, stopGeocoding, reset, setResults, setIsDone, setTotal, setCompleted };
 }
