@@ -1,131 +1,115 @@
-# Geocoding-China-Pro (空间数据工作站)
+# Geocoding-China-Pro | 地理编码与面域数据工作站
 
-批量地理编码转换器 | 地址名一键转经纬度坐标
+**Spatial Data Workstation** — 批量地理编码转换 & OpenStreetMap 面域数据提取工具
+
+**空间数据工作站** — Batch Geocoding Converter & OSM Polygon Extraction Tool
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Stars](https://img.shields.io/github/stars/andyxu12341/Geocoding-China-Pro)](https://github.com/andyxu12341/Geocoding-China-Pro/stargazers)
 
-## 背景介绍
+---
 
-作为一名城乡规划专业的大学生，日常需要处理大量地址数据的坐标转换。调研后发现，GitHub 上虽然已有一些同类项目，但这些网站目前大多已无法访问，而国内现有的在线工具在批量处理能力上也有所欠缺。
+## 核心功能 | Core Features
 
-于是决定自己动手做了这个工具，希望帮助有相同需求的人省去繁琐的手动操作。
+### Tab A: 坐标转换 | Point Geocoding
+- **多源地理编码 / Multi-source Geocoding** — 高德地图、百度地图、OpenStreetMap（均已内置）
+- **智能双引擎 / Dual Engine** — 高德主引擎 + POI 备选引擎，自动降级
+- **跨区域校验 / Cross-region Validation** — 自动验证经纬度与地址省份/城市是否匹配
+- **批量处理 / Batch Processing** — 支持 CSV/Excel 大规模数据分批并发
+- **智能重试 / Smart Retry** — 失败自动重试，支持断点续传
+- **一小时缓存 / Request Cache** — 相同请求 1 小时内直接返回缓存结果
+- **多候选选择 / Multi-candidate Selection** — 高德返回多个结果时可选最佳匹配
+- **自定义分类着色 / Custom Category Coloring** — 按分类字段彩色标注坐标点
 
-> 本项目受 [mapLocation](https://github.com/sjfkai/mapLocation) 等同类项目启发。
+### Tab B: 面域提取 | Polygon Extraction
+- **OpenStreetMap 面域查询 / OSM Polygon Query** — 从 OSM 提取建筑轮廓、城市功能区、行政边界
+- **多边形框选 / Draw Rectangle or Polygon** — 矩形框选或多边形自由绘制，精准限定查询范围
+- **语义搜索 / Semantic Search** — 输入地名/POI/行政区名称，自动定位并提取周边面域
+- **城市功能区分类 / Urban Land-use Coloring** — 按 OSM 标签（residential / commercial / park / industrial 等）8 色城市规划配色
+- **导出 GeoJSON & KML & CSV** — 直接导出用于 QGIS / ArcGIS / Google Earth
 
-## 功能特性
+### 地图可视化 | Map Visualization
+- **9 种底图 / 9 Tile Layers** — 高德、OpenStreetMap、Esri 卫星、高德卫星、智图、天地图（街景/卫星）、CARTO 暗色
+- **分类图例 / Category Legend** — 按中文分类聚合显示，无冗余
+- **自动聚焦 / Auto-fit** — 查询结果自动缩放至所有坐标范围
+- **实时进度条 / Real-time Progress** — 显示处理进度、成功/失败计数
 
-### 核心功能
-- **多源地理编码** - 支持高德地图、百度地图、OpenStreetMap 三种数据源
-- **智能双引擎** - 高德主引擎 + POI备选引擎，自动降级
-- **跨区域校验** - 自动验证经纬度与地址省份/城市是否匹配
-- **批量处理** - 支持大规模 CSV/Excel 数据分批处理
-- **智能重试** - 失败自动重试，断点续传
+### 数据输入 & 导出 | Data Input & Export
+- **输入 / Input** — 文本粘贴、CSV 上传、Excel 上传（.xlsx / .xls）
+- **导出格式 / Export Formats** — CSV / GeoJSON / KML / PNG 地图截图
 
-### 数据输入
-- 文本粘贴（每行一个地址）
-- CSV 文件上传
-- Excel 文件上传（.xlsx / .xls）
-- 支持按分类字段分组，彩色标注
+---
 
-### 地图可视化
-- 九种国内/国际底图切换（高德、OpenStreetMap、Esri卫星、高德卫星、智图、天地图、天地图卫星、CARTO暗色）
-- 分类颜色标记
-- 自动聚焦所有坐标点
-- 实时进度跟踪
-
-### 导出格式
-- CSV - 表格数据分析
-- GeoJSON - GIS 软件（QGIS、ArcGIS）
-- KML - Google Earth
-- PNG - 地图截图
-
-## 快速开始
-
-### 安装依赖
+## 快速开始 | Quick Start
 
 ```bash
 npm install
-# 或使用 bun
-bun install
+npm run dev    # 开发服务器 / Dev server → http://localhost:8083
+npm run build  # 构建生产版本 / Build for production
 ```
 
-### 启动开发服务器
+---
 
-```bash
-npm run dev
-```
+## 配置指南 | Configuration Guide
 
-### 构建生产版本
-
-```bash
-npm run build
-```
-
-## 配置指南
-
-### 高德地图 API Key（推荐）
-
+### 高德地图 API Key（推荐 | Recommended）
 1. 访问 [高德开放平台控制台](https://console.amap.com/dev/key/app)
 2. 创建 Web Service 类型 Key
 3. 无需配置域名绑定
 
 ### 百度地图 API Key
-
 1. 访问 [百度地图开放平台](https://lbsyun.baidu.com/)
-2. 创建浏览器端应用
-3. 复制 AK
+2. 创建浏览器端应用，复制 AK
 
-### OpenStreetMap（无需 Key）
+### OpenStreetMap（无需 Key | No Key Required）
+免费使用，默认速率限制 1 次/秒
 
-免费使用，但有请求频率限制（1次/秒）
+---
 
-## 使用说明
+## 技术栈 | Tech Stack
 
-### 基本流程
+- **前端框架 / Frontend**: React 18 + TypeScript
+- **构建工具 / Build**: Vite
+- **UI 组件 / UI**: shadcn/ui (Radix UI)
+- **地图库 / Map**: Leaflet + leaflet-draw + leaflet.chinatmsproviders
+- **样式 / Styling**: Tailwind CSS
+- **数据处理 / Data**: PapaParse, XLSX
+- **图表 / Charts**: Recharts
+- **国际化 / i18n**: i18next + react-i18next
+- **动画 / Animation**: Framer Motion
 
-1. 选择数据源（推荐高德地图）
-2. 输入 API Key
-3. 可选：设置区域筛选（如"山东省"）
-4. 输入地址（文本粘贴或文件上传）
-5. 点击「开始转换」
-6. 查看地图和结果表格
-7. 导出所需格式
+---
 
-### 地址格式
-
-支持任意中文地址格式：
-- `北京市朝阳区建国路88号`
-- `上海市浦东新区陆家嘴金融中心`
-- `浙江省杭州市西湖区龙井路1号`
-
-## 技术栈
-
-- **前端框架**: React 18 + TypeScript
-- **构建工具**: Vite
-- **UI 组件**: shadcn/ui (Radix UI)
-- **地图库**: Leaflet
-- **样式**: Tailwind CSS
-- **数据处理**: PapaParse, XLSX
-
-## 项目结构
+## 项目结构 | Project Structure
 
 ```
 src/
 ├── pages/
-│   └── Index.tsx      # 主页面
+│   └── Index.tsx              # 主页面 | Main page
 ├── components/
-│   ├── GeoMap.tsx     # 地图组件
-│   └── ui/           # UI 组件库
+│   ├── GeoMap.tsx             # 地图组件 | Map component
+│   ├── AreaQueryPanel.tsx     # 面域提取面板 | Area query panel
+│   ├── ResultsSection.tsx     # 统一结果表格 | Unified results table
+│   └── ui/                   # shadcn/ui 组件库
+├── hooks/
+│   ├── useGeocoding.ts        # 坐标转换 Hook | Geocoding hook
+│   └── useOverpassQuery.ts    # 面域查询 Hook | Overpass query hook
 ├── utils/
-│   ├── geocoding.ts  # 地理编码核心逻辑
-│   └── exportUtils.ts # 导出功能
+│   ├── geocoding.ts           # 地理编码核心逻辑 | Core geocoding
+│   └── exportUtils.ts         # 导出功能 | Export utilities
+├── i18n/
+│   └── locales/              # 翻译文件 zh.json / en.json
 └── lib/
-    └── utils.ts      # 工具函数
+    └── utils.ts              # 工具函数
 ```
 
-## 在线演示
+---
 
-访问 https://andyxu12341.github.io/Geocoding-China-Pro/ 查看在线演示。
+## 在线演示 | Live Demo
+
+🔗 https://andyxu12341.github.io/Geocoding-China-Pro/
+
+---
 
 ## License
 

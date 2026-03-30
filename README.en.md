@@ -1,146 +1,115 @@
-# Geocoding-China-Pro (Spatial Data Workstation)
+# Geocoding-China-Pro | Spatial Data Workstation
 
-Batch Geocoding Converter — Convert address names to longitude/latitude coordinates instantly.
+**空间数据工作站** — Batch Geocoding Converter & OpenStreetMap Polygon Extraction Tool
+
+**Spatial Data Workstation** — 批量地理编码转换 & OpenStreetMap 面域数据提取工具
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Stars](https://img.shields.io/github/stars/andyxu12341/Geocoding-China-Pro)](https://github.com/andyxu12341/Geocoding-China-Pro/stargazers)
 
-## Background
+---
 
-As an urban planning student, I frequently need to convert large amounts of address data into coordinates. After researching, I found that most similar projects on GitHub are no longer accessible, and existing domestic online tools lack sufficient batch processing capabilities.
+## Core Features | 核心功能
 
-So I built this tool to help others with the same needs avoid tedious manual work.
+### Tab A: Point Geocoding | 坐标转换
+- **Multi-source Geocoding / 多源地理编码** — Amap, Baidu Maps, OpenStreetMap (all built-in)
+- **Dual Engine / 智能双引擎** — Amap primary + POI fallback, automatic degradation
+- **Cross-region Validation / 跨区域校验** — Automatically verifies coordinates match address province/city
+- **Batch Processing / 批量处理** — Large-scale CSV/Excel with concurrent batching
+- **Smart Retry / 智能重试** — Failed requests auto-retry with resume capability
+- **Request Cache / 一小时缓存** — Identical requests within 1 hour return cached results instantly
+- **Multi-candidate Selection / 多候选选择** — Choose the best match when Amap returns multiple results
+- **Custom Category Coloring / 自定义分类着色** — Color-code coordinate points by category field
 
-> This project is inspired by [mapLocation](https://github.com/sjfkai/mapLocation) and similar tools.
+### Tab B: Polygon Extraction | 面域提取
+- **OSM Polygon Query / OpenStreetMap 面域查询** — Extract building outlines, urban land-use, administrative boundaries from OSM
+- **Draw Rectangle or Polygon / 多边形框选** — Rectangle or freehand polygon to precisely define query area
+- **Semantic Search / 语义搜索** — Enter place name / POI / administrative district, auto-locate and extract surrounding polygons
+- **Urban Land-use Coloring / 城市功能区分类** — 8-color city planning palette by OSM tags (residential / commercial / park / industrial / etc.)
+- **Export GeoJSON & KML & CSV** — For QGIS, ArcGIS, Google Earth
 
-## Features
+### Map Visualization | 地图可视化
+- **9 Tile Layers / 9 种底图** — Amap, OpenStreetMap, Esri Satellite, Amap Satellite, Geoq, Tianditu (Street/Satellite), CARTO Dark
+- **Category Legend / 分类图例** — Aggregated by Chinese category names, no clutter
+- **Auto-fit / 自动聚焦** — Automatically zoom to fit all query results
+- **Real-time Progress / 实时进度条** — Shows processing progress, success/failure counts
 
-### Core Capabilities
-- **Multi-source Geocoding** — Supports Amap, Baidu Maps, and OpenStreetMap
-- **Intelligent Dual Engine** — Amap as primary engine + POI fallback engine, automatic fallback
-- **Cross-region Validation** — Automatically verifies coordinates match the address province/city
-- **Batch Processing** — Supports large-scale CSV/Excel data with batching
-- **Smart Retry** — Failed requests auto-retry with resume capability
-- **Request Caching** — Identical requests within 1 hour return cached results instantly
-- **Multi-candidate Selection** — When Amap returns multiple results, choose the best match
+### Data Input & Export | 数据输入 & 导出
+- **Input / 输入** — Text paste, CSV upload, Excel upload (.xlsx / .xls)
+- **Export Formats / 导出格式** — CSV / GeoJSON / KML / PNG map screenshot
 
-### Data Input
-- Text paste (one address per line)
-- CSV file upload
-- Excel file upload (.xlsx / .xls)
-- Category grouping with color-coded markers
+---
 
-### Map Visualization
-- Nine domestic/international tile layers (Amap, OpenStreetMap, Esri Satellite, Amap Satellite, Geoq, Tianditu, Tianditu Satellite, CARTO Dark)
-- Category color markers
-- Auto-fit all coordinate points
-- Real-time progress tracking
-
-### Area Query (OSM)
-- Query building/residential/park/commercial/administrative polygons from OpenStreetMap
-- Render polygon overlays on the map
-
-### Export Formats
-- CSV — for spreadsheet analysis
-- GeoJSON — for GIS software (QGIS, ArcGIS)
-- KML — for Google Earth
-- PNG — map screenshot
-
-### Statistics & History
-- Statistics panel with pie chart (success/failure rate) and bar chart (category distribution)
-- LocalStorage-persisted history (last 20 sessions, survives page refresh)
-
-## Quick Start
-
-### Install Dependencies
+## Quick Start | 快速开始
 
 ```bash
 npm install
-# or with bun
-bun install
+npm run dev    # Dev server → http://localhost:8083
+npm run build  # Build for production
 ```
 
-### Start Development Server
+---
 
-```bash
-npm run dev
-```
+## Configuration Guide | 配置指南
 
-### Build for Production
-
-```bash
-npm run build
-```
-
-## Configuration Guide
-
-### Amap API Key (Recommended)
-
+### Amap API Key (Recommended | 推荐)
 1. Visit [Amap Open Platform Console](https://console.amap.com/dev/key/app)
 2. Create a Web Service type Key
 3. No domain binding required
 
 ### Baidu Maps API Key
-
 1. Visit [Baidu Maps Open Platform](https://lbsyun.baidu.com/)
-2. Create a Browser application
-3. Copy the AK
+2. Create a Browser application and copy the AK
 
-### OpenStreetMap (No Key Required)
+### OpenStreetMap (No Key Required | 无需 Key)
+Free to use, rate-limited to 1 request/second by default
 
-Free to use, but rate-limited (1 request/second)
+---
 
-## Usage
-
-### Basic Flow
-
-1. Select data source (Amap recommended)
-2. Enter API Key
-3. Optional: Set region filter (e.g., "Shandong Province")
-4. Enter addresses (paste text or upload file)
-5. Click "Start Conversion"
-6. View map and results table
-7. Export in desired format
-
-### Address Formats
-
-Supports any Chinese address format:
-- `北京市朝阳区建国路88号`
-- `上海市浦东新区陆家嘴金融中心`
-- `浙江省杭州市西湖区龙井路1号`
-
-## Tech Stack
+## Tech Stack | 技术栈
 
 - **Frontend**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **UI Components**: shadcn/ui (Radix UI)
-- **Map Library**: Leaflet
+- **Build**: Vite
+- **UI**: shadcn/ui (Radix UI)
+- **Map**: Leaflet + leaflet-draw + leaflet.chinatmsproviders
 - **Styling**: Tailwind CSS
 - **Data Processing**: PapaParse, XLSX
 - **Charts**: Recharts
 - **i18n**: i18next + react-i18next
+- **Animation**: Framer Motion
 
-## Project Structure
+---
+
+## Project Structure | 项目结构
 
 ```
 src/
 ├── pages/
-│   └── Index.tsx      # Main page
+│   └── Index.tsx              # Main page
 ├── components/
-│   ├── GeoMap.tsx     # Map component
-│   └── ui/            # UI component library
+│   ├── GeoMap.tsx             # Map component
+│   ├── AreaQueryPanel.tsx     # Area query panel
+│   ├── ResultsSection.tsx     # Unified results table
+│   └── ui/                   # shadcn/ui component library
+├── hooks/
+│   ├── useGeocoding.ts        # Geocoding hook
+│   └── useOverpassQuery.ts    # Overpass query hook
 ├── utils/
-│   ├── geocoding.ts   # Core geocoding logic
-│   └── exportUtils.ts # Export utilities
+│   ├── geocoding.ts           # Core geocoding logic
+│   └── exportUtils.ts         # Export utilities
 ├── i18n/
-│   ├── index.ts       # i18next configuration
-│   └── locales/       # Translation files (zh.json, en.json)
+│   └── locales/              # Translation files zh.json / en.json
 └── lib/
-    └── utils.ts       # Utilities
+    └── utils.ts               # Utilities
 ```
 
-## Live Demo
+---
 
-Visit https://andyxu12341.github.io/Geocoding-China-Pro/
+## Live Demo | 在线演示
+
+🔗 https://andyxu12341.github.io/Geocoding-China-Pro/
+
+---
 
 ## License
 
