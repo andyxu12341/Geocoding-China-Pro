@@ -194,7 +194,10 @@ export function ResultsSection({
                         <TableCell className="whitespace-nowrap text-xs">{r.category ? <Badge variant="outline" className="text-xs">{r.category}</Badge> : "-"}</TableCell>
                         <TableCell className="whitespace-nowrap">
                           {r.status === "success" ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">{t("progress.success")}</Badge>
+                            <div className="flex flex-col gap-1">
+                              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">{t("progress.success")}</Badge>
+                              {r.warning && <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400">⚠️ 区域中心</Badge>}
+                            </div>
                           ) : (
                             <Badge variant="destructive" className="text-xs">{r.error || t("progress.failed")}</Badge>
                           )}
