@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  MapPin, Search, Square, Pentagon, Loader2, Globe, Key, ChevronDown,
-} from "lucide-react";
+import { MapPin, Search, Square, Pentagon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,11 +13,15 @@ import {
   type AreaQueryType,
   type AreaQueryMode,
   AREA_TYPE_LABELS,
+  type MapSource,
 } from "@/utils/geocoding";
 import type { GeoMapHandle } from "@/components/GeoMap";
 
 interface AreaQueryPanelProps {
   geoMapRef: React.RefObject<GeoMapHandle>;
+  mapSource: MapSource;
+  gaodeKey: string;
+  baiduKey: string;
   onResults: (results: SpatialResult[]) => void;
 }
 
@@ -37,7 +39,7 @@ const POI_TYPES: AreaQueryType[] = [
   "poi_shopping", "poi_education", "poi_sport", "poi_all",
 ];
 
-export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
+export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onResults }: AreaQueryPanelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { fetchSpatial, isLoading, error } = useOverpassQuery();
@@ -45,21 +47,29 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
   const [mode, setMode] = useState<AreaQueryMode>("semantic");
   const [keyword, setKeyword] = useState("");
   const [areaType, setAreaType] = useState<AreaQueryType>("building");
-  const [poiSource, setPoiSource] = useState<POISource>("osm");
-  const [gaodeKey, setGaodeKey] = useState(() => localStorage.getItem("gc_gaode_key") || "");
-  const [baiduKey, setBaiduKey] = useState(() => localStorage.getItem("gc_baidu_key") || "");
-  const [showApiConfig, setShowApiConfig] = useState(false);
-
-  useEffect(() => {
-    const needsExpand = (poiSource === "gaode" && !gaodeKey.trim()) ||
-                        (poiSource === "baidu" && !baiduKey.trim());
-    if (needsExpand) setShowApiConfig(true);
-  }, [poiSource]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isPolygonType = !areaType.startsWith("poi_");
+  const isOsm = mapSource === "osm";
+
+  useEffect(() => {
+    if (mapSource !== "osm") {
+      setAreaType(prev => prev.startsWith("poi_") ? prev : "poi_all");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapSource]);
+
+  const poiSource: POISource = isOsm ? "osm" : mapSource === "gaode" ? "gaode" : "baidu";
   const apiKey = poiSource === "gaode" ? gaodeKey.trim() : poiSource === "baidu" ? baiduKey.trim() : undefined;
+
+  const handleAreaTypeChange = (type: AreaQueryType) => {
+    setAreaType(type);
+  };
+
+  const effectiveAreaType = (() => {
+    if (!isOsm && !areaType.startsWith("poi_")) return "poi_all";
+    return areaType;
+  })();
 
   const handleQuery = () => {
     if (debounceRef.current) return;
@@ -77,7 +87,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             bounds.getSouth(), bounds.getWest(),
             bounds.getNorth(), bounds.getEast(),
           ];
-          const results = await fetchSpatial({ mode: "rectangle", areaType, dataSource: poiSource, bbox, apiKey });
+          const results = await fetchSpatial({ mode: "rectangle", areaType: effectiveAreaType, dataSource: poiSource, bbox, apiKey });
           onResults(results);
           geoMapRef.current?.setDrawMode("none");
         },
@@ -92,7 +102,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
         null,
         async (latlngs) => {
           const polygonLatLngs: [number, number][] = latlngs.map(l => [l.lat, l.lng]);
-          const results = await fetchSpatial({ mode: "polygon", areaType, dataSource: poiSource, polygonLatLngs, apiKey });
+          const results = await fetchSpatial({ mode: "polygon", areaType: effectiveAreaType, dataSource: poiSource, polygonLatLngs, apiKey });
           onResults(results);
           geoMapRef.current?.setDrawMode("none");
         }
@@ -104,7 +114,7 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
     const runQuery = async () => {
       const results = await fetchSpatial({
         mode: "semantic",
-        areaType,
+        areaType: effectiveAreaType,
         dataSource: poiSource,
         keyword: keyword.trim(),
         apiKey,
@@ -129,30 +139,44 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             {t("areaQuery.queryType")}
           </label>
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground font-medium">🏗️ {t("areaQuery.groupPolygon")}</p>
-            <div className="flex flex-wrap gap-1">
-              {POLYGON_TYPES.map(type => (
-                <button
-                  key={type}
-                  onClick={() => setAreaType(type)}
-                  className={`rounded-md border px-2 py-1 text-xs transition-colors ${
-                    areaType === type && isPolygonType
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-accent"
-                  }`}
-                >
-                  {AREA_TYPE_LABELS[type]}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">🏗️ {t("areaQuery.groupPolygon")}</span>
+              {!isOsm && (
+                <span className="text-xs text-muted-foreground">({t("areaQuery.osmOnly")})</span>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground font-medium mt-2">📍 {t("areaQuery.groupPOI")}</p>
+            <div className="flex flex-wrap gap-1">
+              {POLYGON_TYPES.map(type => {
+                const disabled = !isOsm;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => !disabled && handleAreaTypeChange(type)}
+                    disabled={disabled}
+                    title={disabled ? t("areaQuery.polygonDisabled") : ""}
+                    className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                      disabled
+                        ? "border-border bg-muted/40 text-muted-foreground cursor-not-allowed opacity-60"
+                        : effectiveAreaType === type
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:bg-accent"
+                    }`}
+                  >
+                    {AREA_TYPE_LABELS[type]}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-muted-foreground font-medium">📍 {t("areaQuery.groupPOI")}</span>
+            </div>
             <div className="flex flex-wrap gap-1">
               {POI_TYPES.map(type => (
                 <button
                   key={type}
-                  onClick={() => setAreaType(type)}
+                  onClick={() => handleAreaTypeChange(type)}
                   className={`rounded-md border px-2 py-1 text-xs transition-colors ${
-                    areaType === type
+                    effectiveAreaType === type
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:bg-accent"
                   }`}
@@ -163,96 +187,6 @@ export function AreaQueryPanel({ geoMapRef, onResults }: AreaQueryPanelProps) {
             </div>
           </div>
         </div>
-
-        {!isPolygonType && (
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              {t("areaQuery.dataSource")}
-            </label>
-            <div className="flex gap-1">
-              {(["osm", "gaode", "baidu"] as POISource[]).map(src => (
-                <button
-                  key={src}
-                  onClick={() => setPoiSource(src)}
-                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition-colors flex items-center justify-center gap-1 ${
-                    poiSource === src
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-accent"
-                  }`}
-                >
-                  {src === "osm" && <><Globe className="h-3 w-3" /> OSM</>}
-                  {src === "gaode" && <><Key className="h-3 w-3" /> 高德</>}
-                  {src === "baidu" && <><Key className="h-3 w-3" /> 百度</>}
-                </button>
-              ))}
-            </div>
-            {poiSource === "gaode" && !gaodeKey.trim() && (
-              <p className="text-xs text-amber-600 mt-1">{t("areaQuery.gaodeKeyRequired")}</p>
-            )}
-            {poiSource === "baidu" && !baiduKey.trim() && (
-              <p className="text-xs text-amber-600 mt-1">{t("areaQuery.baiduKeyRequired")}</p>
-            )}
-          </div>
-        )}
-
-        {!isPolygonType && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-            <button
-              onClick={() => setShowApiConfig(v => !v)}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900 rounded-lg transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <Key className="h-3.5 w-3.5" />
-                {t("areaQuery.apiConfigTitle")}
-                {(gaodeKey.trim() || baiduKey.trim()) && (
-                  <span className="text-emerald-600 font-medium">✓ {t("areaQuery.configured")}</span>
-                )}
-              </span>
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showApiConfig ? "rotate-180" : ""}`} />
-            </button>
-            <AnimatePresence>
-              {showApiConfig && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-3 pb-3 space-y-2">
-                    <div>
-                      <label className="block text-xs text-muted-foreground mb-1">{t("areaQuery.gaodeKey")}</label>
-                      <Input
-                        type="password"
-                        value={gaodeKey}
-                        onChange={e => {
-                          setGaodeKey(e.target.value);
-                          localStorage.setItem("gc_gaode_key", e.target.value);
-                        }}
-                        placeholder={t("areaQuery.gaodeKeyPlaceholder")}
-                        className="text-xs h-8"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-muted-foreground mb-1">{t("areaQuery.baiduKey")}</label>
-                      <Input
-                        type="password"
-                        value={baiduKey}
-                        onChange={e => {
-                          setBaiduKey(e.target.value);
-                          localStorage.setItem("gc_baidu_key", e.target.value);
-                        }}
-                        placeholder={t("areaQuery.baiduKeyPlaceholder")}
-                        className="text-xs h-8"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">{t("areaQuery.keyConfigHint")}</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
 
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">

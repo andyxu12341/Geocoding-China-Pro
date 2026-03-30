@@ -157,16 +157,8 @@
     "rendered": "已在地图上渲染 {{count}} 个面数据",
     "groupPolygon": "面域提取",
     "groupPOI": "POI 点位",
-    "dataSource": "数据源",
-    "gaodeKeyRequired": "高德 POI 需要配置高德 Web 服务 Key",
-    "baiduKeyRequired": "百度 POI 需要配置百度浏览器端 AK",
-    "apiConfigTitle": "API 配置",
-    "configured": "已配置",
-    "gaodeKey": "高德 Web 服务 Key",
-    "baiduKey": "百度浏览器端 AK",
-    "gaodeKeyPlaceholder": "输入高德 Web 服务 API Key...",
-    "baiduKeyPlaceholder": "输入百度 Browser 端 AK...",
-    "keyConfigHint": "配置后自动保存，同左侧 Key 共用"
+    "osmOnly": "仅 OpenStreetMap",
+    "polygonDisabled": "面域提取仅 OpenStreetMap 可用"
   },
   "tabs": {
     "geocoding": "坐标转换",

@@ -157,16 +157,8 @@
     "rendered": "Rendered {{count}} polygons on map",
     "groupPolygon": "Polygon Extraction",
     "groupPOI": "POI Point",
-    "dataSource": "Data Source",
-    "gaodeKeyRequired": "Gaode POI requires Gaode Web Service API Key",
-    "baiduKeyRequired": "Baidu POI requires Baidu Browser AK",
-    "apiConfigTitle": "API Configuration",
-    "configured": "Configured",
-    "gaodeKey": "Gaode Web Service Key",
-    "baiduKey": "Baidu Browser AK",
-    "gaodeKeyPlaceholder": "Enter Gaode Web Service API Key...",
-    "baiduKeyPlaceholder": "Enter Baidu Browser AK...",
-    "keyConfigHint": "Saved automatically, shared with left panel"
+    "osmOnly": "OSM only",
+    "polygonDisabled": "Polygon extraction is only available on OpenStreetMap"
   },
   "tabs": {
     "geocoding": "Geocoding",

@@ -368,6 +368,9 @@ export default function Index() {
                 >
                 <AreaQueryPanel
                   geoMapRef={geoMapRef}
+                  mapSource={mapSource}
+                  gaodeKey={gaodeKey}
+                  baiduKey={baiduKey}
                   onResults={(results) => setAreaResults(results)}
                 />
                 </motion.div>

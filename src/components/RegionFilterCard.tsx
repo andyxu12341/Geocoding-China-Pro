@@ -15,10 +15,13 @@ export function RegionFilterCard({ mapSource, regionFilter, onRegionFilterChange
 
   return (
     <Card>
-      <CardContent className="pt-4 space-y-1">
-        <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <MapPin className="h-3 w-3" /> {t("settings.regionFilter")}
-        </label>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <MapPin className="h-4 w-4" />
+          {t("settings.regionFilter")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1">
         <Input
           value={regionFilter}
           onChange={(e) => onRegionFilterChange(e.target.value)}
