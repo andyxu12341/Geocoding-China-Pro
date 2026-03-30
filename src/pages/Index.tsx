@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { type MapSource, type GeocodeItem, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
+import { type MapSource, type GeocodeItem, type GeocodeCandidate } from "@/utils/geocoding";
+import { type SpatialResult } from "@/hooks/useOverpassQuery";
 import { exportMapPNG } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
 
@@ -146,7 +147,7 @@ export default function Index() {
   // Auto-fit control
   const [autoFitDisabled, setAutoFitDisabled] = useState(false);
 
-  const [areaResults, setAreaResults] = useState<AreaResult[]>([]);
+  const [areaResults, setAreaResults] = useState<SpatialResult[]>([]);
 
   // Dark mode with system sync
   const [darkMode, setDarkMode] = useState(getInitialDarkMode);
@@ -206,16 +207,29 @@ export default function Index() {
       category: r.category,
     }));
 
-  const mapPolygons: MapPolygon[] = areaResults.map((r) => ({
-    id: `${r.osmId}`,
-    rings: r.polygon,
-    label: r.name,
-    tags: r.tags,
-    color: r.color,
-    categoryName: r.categoryName,
-    osmId: r.osmId,
-    osmType: r.osmType,
-  }));
+  const mapPolygons: MapPolygon[] = areaResults
+    .filter((r): r is SpatialResult & { polygon: NonNullable<SpatialResult["polygon"]> } => !!r.polygon)
+    .map((r) => ({
+      id: `${r.polygon.osmId}`,
+      rings: r.polygon.polygon,
+      label: r.polygon.name,
+      tags: r.polygon.tags,
+      color: r.polygon.color,
+      categoryName: r.polygon.categoryName,
+      osmId: r.polygon.osmId,
+      osmType: r.polygon.osmType,
+    }));
+
+  const poiMarkers: MapMarker[] = areaResults
+    .filter((r): r is SpatialResult & { poi: NonNullable<SpatialResult["poi"]> } => !!r.poi)
+    .map((r) => ({
+      lat: r.poi.lat,
+      lng: r.poi.lng,
+      label: r.poi.name,
+      category: r.poi.categoryName,
+    }));
+
+  const allMapMarkers = [...mapMarkers, ...poiMarkers];
 
   const progress = total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
   const eta = (() => {
@@ -327,6 +341,8 @@ export default function Index() {
                 <AreaQueryPanel
                   geoMapRef={geoMapRef}
                   onResults={(results) => setAreaResults(results)}
+                  gaodeKey={gaodeKey}
+                  baiduKey={baiduKey}
                 />
                 </motion.div>
               </TabsContent>
@@ -350,7 +366,7 @@ export default function Index() {
                 <div ref={mapContainerRef} className="rounded-xl border overflow-hidden" style={{ height: "calc(100vh - 220px)" }}>
                   <GeoMap
                     ref={geoMapRef}
-                    markers={mapMarkers}
+                    markers={allMapMarkers}
                     polygons={mapPolygons}
                     className="h-full w-full"
                     autoFitDisabled={autoFitDisabled}

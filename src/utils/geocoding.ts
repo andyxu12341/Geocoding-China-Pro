@@ -33,6 +33,13 @@ export const AREA_TYPE_LABELS: Record<AreaQueryType, string> = {
   building: "🏢 建筑轮廓",
   landuse: "🗺️ 城市功能区",
   admin: "🏛️ 行政边界",
+  poi_restaurant: "🍜 餐饮美食",
+  poi_medical: "🏥 医疗设施",
+  poi_transport: "🚌 交通设施",
+  poi_shopping: "🛒 商业购物",
+  poi_education: "🎓 教育设施",
+  poi_sport: "⚽ 体育健身",
+  poi_all: "📍 所有 POI",
 };
 
 export const AREA_TYPE_DESCRIPTIONS: Record<AreaQueryType, string> = {
@@ -40,6 +47,13 @@ export const AREA_TYPE_DESCRIPTIONS: Record<AreaQueryType, string> = {
   building: "查询建筑物轮廓（如单体建筑、大型场馆）",
   landuse: "查询住宅区、商业区、公园绿地、工业用地等城市功能区",
   admin: "查询行政区划边界（省/市/区/街道）",
+  poi_restaurant: "查询餐厅、咖啡馆、小吃店等餐饮场所",
+  poi_medical: "查询医院、诊所、药店等医疗设施",
+  poi_transport: "查询停车场、公交站、码头等交通设施",
+  poi_shopping: "查询商场、超市、便利店等商业购物场所",
+  poi_education: "查询学校、大学、幼儿园等教育设施",
+  poi_sport: "查询体育场、运动中心、篮球场等体育设施",
+  poi_all: "查询所有类型的 POI 点位",
 };
 
 export interface GeocodingConfig {
@@ -83,6 +97,20 @@ export interface AreaResult {
   color: string;
   polygon: number[][][];
   center?: { lat: number; lng: number };
+}
+
+export interface POIResult {
+  name: string;
+  type: AreaQueryType;
+  osmId?: number;
+  osmType?: string;
+  lat: number;
+  lng: number;
+  categoryName: string;
+  color: string;
+  tags: Record<string, string>;
+  address?: string;
+  source: "osm" | "gaode" | "baidu";
 }
 
 export const LANDUSE_STANDARD_MAP: Record<string, { name: string; color: string }> = {
@@ -148,6 +176,20 @@ export const LANDUSE_STANDARD_MAP: Record<string, { name: string; color: string 
   canal: { name: "1705 沟渠", color: "#9ABCE2" },
   construction: { name: "其他用地（在建）", color: "#E0E0E0" },
   default: { name: "其他用地（未匹配分类）", color: "#E0E0E0" },
+};
+
+export const POI_COLORS: Record<AreaQueryType, string> = {
+  all: "#9B59B6",
+  building: "#A9A9A9",
+  landuse: "#00BFFF",
+  admin: "#595959",
+  poi_restaurant: "#E74C3C",
+  poi_medical: "#FF6B6B",
+  poi_transport: "#F39C12",
+  poi_shopping: "#27AE60",
+  poi_education: "#3498DB",
+  poi_sport: "#1ABC9C",
+  poi_all: "#9B59B6",
 };
 
 const BUILDING_NAME_MAP: Record<string, string> = {
@@ -219,6 +261,26 @@ export function getStandardizedTags(tags: Record<string, string>, queryType: Are
 
   if (queryType === "admin") {
     return { categoryName: "行政边界", color: "#595959" };
+  }
+
+  if (queryType.startsWith("poi_")) {
+    const POI_LABELS: Record<AreaQueryType, string> = {
+      all: "所有 POI",
+      building: "建筑",
+      landuse: "城市功能区",
+      admin: "行政边界",
+      poi_restaurant: "餐饮美食",
+      poi_medical: "医疗设施",
+      poi_transport: "交通设施",
+      poi_shopping: "商业购物",
+      poi_education: "教育设施",
+      poi_sport: "体育健身",
+      poi_all: "所有 POI",
+    };
+    return {
+      categoryName: POI_LABELS[queryType],
+      color: POI_COLORS[queryType],
+    };
   }
 
   return { categoryName: "其他用地（未匹配分类）", color: "#E0E0E0" };
@@ -749,6 +811,49 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): s
   }
 }
 
+function getPOITypeFilter(type: AreaQueryType): string {
+  switch (type) {
+    case "poi_restaurant":
+      return `node["amenity"~"restaurant|cafe|fast_food"](AREA_PLACEHOLDER);`;
+    case "poi_medical":
+      return `node["amenity"~"hospital|clinic|doctors|pharmacy"](AREA_PLACEHOLDER);`;
+    case "poi_transport":
+      return `node["amenity"~"parking|bus_station|ferry_terminal|taxi"](AREA_PLACEHOLDER);`;
+    case "poi_shopping":
+      return `node["shop"](AREA_PLACEHOLDER);`;
+    case "poi_education":
+      return `node["amenity"~"school|university|kindergarten|college"](AREA_PLACEHOLDER);`;
+    case "poi_sport":
+      return `node["leisure"~"pitch|sports_centre|stadium|fitness_centre"](AREA_PLACEHOLDER);`;
+    case "poi_all":
+      return [
+        `node["amenity"](AREA_PLACEHOLDER);`,
+        `node["shop"](AREA_PLACEHOLDER);`,
+        `node["leisure"](AREA_PLACEHOLDER);`,
+        `node["tourism"](AREA_PLACEHOLDER);`,
+      ].join("");
+    default:
+      return `node["name"](AREA_PLACEHOLDER);`;
+  }
+}
+
+function buildPOIBboxQuery(bbox: [number, number, number, number], poiType: AreaQueryType): string {
+  const [south, west, north, east] = bbox;
+  const filter = getPOITypeFilter(poiType);
+  return `[out:json][timeout:300];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out body;`;
+}
+
+function buildPOIPolygonQuery(latlngs: [number, number][], poiType: AreaQueryType): string {
+  const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
+  const filter = getPOITypeFilter(poiType);
+  return `[out:json][timeout:300];(${filter.replace(/AREA_PLACEHOLDER/g, `poly:"${polyStr}"`)});out body;`;
+}
+
+function buildPOIAreaQuery(areaId: string, poiType: AreaQueryType): string {
+  const filter = getPOITypeFilter(poiType);
+  return `[out:json][timeout:300];(${filter.replace(/AREA_PLACEHOLDER/g, `area(${areaId})`)});out body;`;
+}
+
 function buildBboxOverpassQuery(bbox: [number, number, number, number], type: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   // Overpass bbox format: (south,west,north,east)
@@ -948,6 +1053,238 @@ export async function queryOSMArea(
   }
 
   return results;
+}
+
+async function runOverpassQuery(query: string, signal?: AbortSignal): Promise<OverpassResponse> {
+  let lastErr: Error | null = null;
+  for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
+    const endpoint = OVERPASS_ENDPOINTS[i];
+    console.log(`[Overpass] 节点 ${i + 1}/${OVERPASS_ENDPOINTS.length} — QL:`, query);
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "Geocoding-China-Pro/1.0 (https://github.com/andyxu12341/Geocoding-China-Pro)",
+        },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: signal || AbortSignal.timeout(60000),
+      });
+      if (res.status === 400) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Overpass 查询语法错误（HTTP 400）: ${text.slice(0, 200)}`);
+      }
+      if (res.status === 429) {
+        lastErr = new Error("Overpass API 请求过于频繁，请稍后再试（HTTP 429）");
+        if (i < OVERPASS_ENDPOINTS.length - 1) continue;
+        throw lastErr;
+      }
+      if (!res.ok) throw new Error(`Overpass API 错误: HTTP ${res.status}`);
+      return await res.json() as OverpassResponse;
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      if (i < OVERPASS_ENDPOINTS.length - 1) {
+        console.warn(`[Overpass] 节点 ${endpoint} 请求失败（${lastErr.message}），尝试下一个节点...`);
+      }
+    }
+  }
+  throw lastErr || new Error("Overpass 查询失败");
+}
+
+export async function queryOSMPOI(
+  mode: AreaQueryMode,
+  poiType: AreaQueryType,
+  params: {
+    keyword?: string;
+    bbox?: [number, number, number, number];
+    polygonLatLngs?: [number, number][];
+  },
+  signal?: AbortSignal,
+): Promise<POIResult[]> {
+  let query: string;
+
+  if (mode === "semantic") {
+    if (!params.keyword) throw new Error("请输入关键词");
+    const place = await searchNominatim(params.keyword, signal);
+    if (!place) throw new Error(`未找到「${params.keyword}」的位置信息，请尝试更具体的名称`);
+    if (place.osm_type && place.osm_id) {
+      const areaId = osmToAreaId(place.osm_type, place.osm_id);
+      query = buildPOIAreaQuery(areaId, poiType);
+    } else if (place.boundingbox) {
+      const bbox = expandBbox(place.boundingbox, 0.02);
+      query = buildPOIBboxQuery(bbox, poiType);
+    } else {
+      throw new Error(`无法获取「${params.keyword}」的查询范围`);
+    }
+  } else if (mode === "rectangle") {
+    if (!params.bbox) throw new Error("缺少边界框参数");
+    query = buildPOIBboxQuery(params.bbox, poiType);
+  } else {
+    if (!params.polygonLatLngs || params.polygonLatLngs.length < 3) throw new Error("缺少多边形顶点数据");
+    query = buildPOIPolygonQuery(params.polygonLatLngs, poiType);
+  }
+
+  const data = await runOverpassQuery(query, signal);
+  const { categoryName, color } = getStandardizedTags({}, poiType);
+
+  const results: POIResult[] = [];
+  for (const el of data.elements) {
+    if (el.type !== "node") continue;
+    if (el.lat === undefined || el.lon === undefined) continue;
+    const name = el.tags?.name || el.tags?.["name:zh"] || el.tags?.ref || `OSM Node ${el.id}`;
+    results.push({
+      name,
+      type: poiType,
+      osmId: el.id,
+      osmType: "node",
+      lat: el.lat,
+      lng: el.lon,
+      categoryName,
+      color,
+      tags: el.tags || {},
+      source: "osm",
+    });
+  }
+  return results;
+}
+
+export async function queryGaodePOI(
+  keyword: string,
+  poiType: AreaQueryType,
+  apiKey: string,
+  region?: string,
+  bbox?: [number, number, number, number],
+): Promise<POIResult[]> {
+  const { categoryName, color } = getStandardizedTags({}, poiType);
+  const POITYPE_MAP: Record<AreaQueryType, string> = {
+    poi_restaurant: "餐饮服务",
+    poi_medical: "医疗保健",
+    poi_transport: "交通设施",
+    poi_shopping: "购物",
+    poi_education: "科教文化",
+    poi_sport: "体育休闲",
+    poi_all: "",
+    all: "",
+    building: "",
+    landuse: "",
+    admin: "",
+  };
+  const typeCode = POITYPE_MAP[poiType] || "";
+
+  const url = new URL("https://restapi.amap.com/v3/place/text");
+  url.searchParams.set("keywords", keyword);
+  if (typeCode) url.searchParams.set("types", typeCode);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("offset", "50");
+  url.searchParams.set("page", "1");
+  url.searchParams.set("output", "json");
+  if (region) {
+    url.searchParams.set("city", region);
+    url.searchParams.set("citylimit", "true");
+  }
+  if (bbox) {
+    const [south, west, north, east] = bbox;
+    url.searchParams.set("rect", `${west},${south},${east},${north}`);
+  }
+
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`高德 POI 查询失败: HTTP ${res.status}`);
+  const data = await res.json() as {
+    status: string;
+    info: string;
+    pois?: Array<{
+      name: string;
+      location: string;
+      address?: string;
+      type?: string;
+    }>;
+  };
+  if (data.status !== "1" || !data.pois?.length) {
+    throw new Error(data.info || "高德 POI 未找到结果");
+  }
+
+  return data.pois
+    .filter(p => p.location)
+    .map(p => {
+      const [lng, lat] = p.location.split(",");
+      return {
+        name: p.name,
+        type: poiType,
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        categoryName,
+        color,
+        tags: {
+          address: p.address || "",
+          type: p.type || "",
+        },
+        address: p.address,
+        source: "gaode" as const,
+      };
+    });
+}
+
+export async function queryBaiduPOI(
+  keyword: string,
+  poiType: AreaQueryType,
+  apiKey: string,
+  region?: string,
+): Promise<POIResult[]> {
+  const { categoryName, color } = getStandardizedTags({}, poiType);
+  const POITYPE_MAP: Record<AreaQueryType, string> = {
+    poi_restaurant: "餐饮",
+    poi_medical: "医疗",
+    poi_transport: "交通设施",
+    poi_shopping: "购物",
+    poi_education: "教育培训",
+    poi_sport: "运动健身",
+    poi_all: "",
+    all: "",
+    building: "",
+    landuse: "",
+    admin: "",
+  };
+  const typeCode = POITYPE_MAP[poiType] || "";
+
+  const url = new URL("https://api.map.baidu.com/place/v2/search");
+  url.searchParams.set("query", typeCode ? `${typeCode}${keyword}` : keyword);
+  url.searchParams.set("tag", typeCode);
+  url.searchParams.set("ak", apiKey);
+  url.searchParams.set("output", "json");
+  url.searchParams.set("scope", "1");
+  url.searchParams.set("page_size", "50");
+  url.searchParams.set("page_num", "0");
+  if (region) url.searchParams.set("region", region);
+
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`百度 POI 查询失败: HTTP ${res.status}`);
+  const data = await res.json() as {
+    status: number;
+    message: string;
+    results?: Array<{
+      name: string;
+      location: { lat: number; lng: number };
+      address?: string;
+      street_id?: string;
+    }>;
+  };
+  if (data.status !== 0 || !data.results?.length) {
+    throw new Error(data.message || "百度 POI 未找到结果");
+  }
+
+  return data.results
+    .filter(r => r.location)
+    .map(r => ({
+      name: r.name,
+      type: poiType,
+      lat: r.location.lat,
+      lng: r.location.lng,
+      categoryName,
+      color,
+      tags: { address: r.address || "" },
+      address: r.address,
+      source: "baidu" as const,
+    }));
 }
 
 function elementCenter(coords: number[][]): { lat: number; lng: number } {

@@ -153,7 +153,12 @@
     "startDrawPoly": "在地图上绘制多边形",
     "drawRectHint": "在地图上点击两个对角顶点，自动成框",
     "drawPolyHint": "请在右侧地图上点击绘制多边形（双击结束）",
-    "rendered": "已在地图上渲染 {{count}} 个面数据"
+    "rendered": "已在地图上渲染 {{count}} 个面数据",
+    "groupPolygon": "面域提取",
+    "groupPOI": "POI 点位",
+    "dataSource": "数据源",
+    "gaodeKeyRequired": "高德 POI 需要配置高德 Web 服务 Key",
+    "baiduKeyRequired": "百度 POI 需要配置百度浏览器端 AK"
   },
   "tabs": {
     "geocoding": "坐标转换",

@@ -8,16 +8,18 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
-import type { GeocodeItem, AreaResult } from "@/utils/geocoding";
+import type { GeocodeItem, AreaResult, POIResult } from "@/utils/geocoding";
 import {
   exportCSV, exportGeoJSON, exportGeocodingKML,
   exportPolygonCSV, exportPolygonGeoJSON, exportPolygonKML,
+  exportCombinedCSV, exportCombinedGeoJSON, exportCombinedKML,
 } from "@/utils/exportUtils";
+import type { SpatialResult } from "@/hooks/useOverpassQuery";
 
 interface ResultsSectionProps {
   appMode: "geocoding" | "polygon";
   results: GeocodeItem[];
-  areaResults: AreaResult[];
+  areaResults: SpatialResult[];
   onExportPNG: () => void;
   onCopyCoords: (r: GeocodeItem) => void;
   onSelectCandidate: (address: string, candidates: GeocodeItem["candidates"]) => void;
@@ -28,6 +30,59 @@ export function ResultsSection({
 }: ResultsSectionProps) {
   const { t } = useTranslation();
   const count = appMode === "geocoding" ? results.length : areaResults.length;
+
+  const polygonResults: AreaResult[] = areaResults
+    .filter(r => !!r.polygon)
+    .map(r => r.polygon!);
+  const poiResults: POIResult[] = areaResults
+    .filter(r => !!r.poi)
+    .map(r => r.poi!);
+
+  const polygonExportDisabled = polygonResults.length === 0;
+  const poiExportDisabled = poiResults.length === 0;
+
+  const handleExportPolygonCSV = () => {
+    if (polygonExportDisabled) return;
+    exportPolygonCSV(polygonResults);
+  };
+  const handleExportPolygonGeoJSON = () => {
+    if (polygonExportDisabled) return;
+    exportPolygonGeoJSON(polygonResults);
+  };
+  const handleExportPolygonKML = () => {
+    if (polygonExportDisabled) return;
+    exportPolygonKML(polygonResults);
+  };
+
+  const handleExportPOIGeoJSON = () => {
+    if (poiExportDisabled) return;
+    exportGeoJSON(
+      poiResults.map(p => ({
+        address: p.name,
+        lat: String(p.lat),
+        lng: String(p.lng),
+        formattedAddress: p.address,
+        source: p.source,
+        category: p.categoryName,
+        status: "success" as const,
+      }))
+    );
+  };
+
+  const handleExportPOIKML = () => {
+    if (poiExportDisabled) return;
+    exportGeocodingKML(
+      poiResults.map(p => ({
+        address: p.name,
+        lat: String(p.lat),
+        lng: String(p.lng),
+        formattedAddress: p.address,
+        source: p.source,
+        category: p.categoryName,
+        status: "success" as const,
+      }))
+    );
+  };
 
   return (
     <AnimatePresence>
@@ -59,9 +114,84 @@ export function ResultsSection({
                       </>
                     ) : (
                       <>
-                        <DropdownMenuItem onClick={() => exportPolygonCSV(areaResults)}>📄 CSV</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => exportPolygonGeoJSON(areaResults)}>🗺️ GeoJSON</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => exportPolygonKML(areaResults)}>🌍 Google Earth (KML)</DropdownMenuItem>
+                        {poiResults.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">📍 POI 点位</div>
+                            <DropdownMenuItem onClick={handleExportPOIGeoJSON} disabled={poiExportDisabled}>🗺️ GeoJSON</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportPOIKML} disabled={poiExportDisabled}>🌍 KML</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              if (poiExportDisabled) return;
+                              exportCSV(
+                                poiResults.map(p => ({
+                                  address: p.name,
+                                  lat: String(p.lat),
+                                  lng: String(p.lng),
+                                  formattedAddress: p.address,
+                                  source: p.source,
+                                  category: p.categoryName,
+                                  status: "success" as const,
+                                }))
+                              );
+                            }} disabled={poiExportDisabled}>📄 CSV</DropdownMenuItem>
+                          </>
+                        )}
+                        {polygonResults.length > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">🏗️ 面域数据</div>
+                            <DropdownMenuItem onClick={handleExportPolygonCSV} disabled={polygonExportDisabled}>📄 CSV</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportPolygonGeoJSON} disabled={polygonExportDisabled}>🗺️ GeoJSON</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportPolygonKML} disabled={polygonExportDisabled}>🌍 KML</DropdownMenuItem>
+                          </>
+                        )}
+                        {polygonResults.length > 0 && poiResults.length > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">📦 统一导出</div>
+                            <DropdownMenuItem onClick={() => {
+                              exportCombinedCSV(
+                                poiResults.map(p => ({
+                                  address: p.name,
+                                  lat: String(p.lat),
+                                  lng: String(p.lng),
+                                  formattedAddress: p.address,
+                                  source: p.source,
+                                  category: p.categoryName,
+                                  status: "success" as const,
+                                })),
+                                polygonResults
+                              );
+                            }}>📄 Combined CSV</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              exportCombinedGeoJSON(
+                                poiResults.map(p => ({
+                                  address: p.name,
+                                  lat: String(p.lat),
+                                  lng: String(p.lng),
+                                  formattedAddress: p.address,
+                                  source: p.source,
+                                  category: p.categoryName,
+                                  status: "success" as const,
+                                })),
+                                polygonResults
+                              );
+                            }}>🗺️ Combined GeoJSON</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              exportCombinedKML(
+                                poiResults.map(p => ({
+                                  address: p.name,
+                                  lat: String(p.lat),
+                                  lng: String(p.lng),
+                                  formattedAddress: p.address,
+                                  source: p.source,
+                                  category: p.categoryName,
+                                  status: "success" as const,
+                                })),
+                                polygonResults
+                              );
+                            }}>🌍 Combined KML</DropdownMenuItem>
+                          </>
+                        )}
                       </>
                     )}
                     <DropdownMenuSeparator />
@@ -119,39 +249,72 @@ export function ResultsSection({
                   </TableBody>
                 </Table>
               ) : (
-                <Table
-                  className="w-full whitespace-nowrap text-left text-sm"
-                  containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[500px] border rounded-md"
-                >
-                  <TableHeader className="sticky top-0 z-10 bg-card">
-                    <TableRow>
-                      <TableHead className="whitespace-nowrap">{t("results.polyName")}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t("results.polyCategory")}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t("results.polyOsmId")}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t("results.polyCenter")}</TableHead>
-                      <TableHead className="max-w-xs truncate whitespace-nowrap">{t("results.polyTags")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {areaResults.map((r) => (
-                      <TableRow key={r.osmId}>
-                        <TableCell className="max-w-xs truncate font-medium">{r.name || "未命名"}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <Badge variant="outline" className="text-xs">
-                            {r.categoryName}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{r.osmId}</TableCell>
-                        <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                          {r.center ? `${r.center.lat.toFixed(5)}, ${r.center.lng.toFixed(5)}` : "—"}
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-                          {Object.entries(r.tags).slice(0, 3).map(([k, v]) => `${k}:${v}`).join(", ")}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="space-y-4">
+                  {polygonResults.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">🏗️ 面域数据 ({polygonResults.length})</p>
+                      <Table containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded-md">
+                        <TableHeader className="sticky top-0 z-10 bg-card">
+                          <TableRow>
+                            <TableHead className="whitespace-nowrap">{t("results.polyName")}</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.polyCategory")}</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.polyOsmId")}</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.polyCenter")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {polygonResults.map((r) => (
+                            <TableRow key={`poly-${r.osmId}`}>
+                              <TableCell className="max-w-xs truncate font-medium">{r.name || "未命名"}</TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <Badge variant="outline" className="text-xs" style={{ borderColor: r.color, backgroundColor: `${r.color}20` }}>{r.categoryName}</Badge>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{r.osmId}</TableCell>
+                              <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                                {r.center ? `${r.center.lat.toFixed(5)}, ${r.center.lng.toFixed(5)}` : "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  {poiResults.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">📍 POI 点位 ({poiResults.length})</p>
+                      <Table containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[300px] border rounded-md">
+                        <TableHeader className="sticky top-0 z-10 bg-card">
+                          <TableRow>
+                            <TableHead className="whitespace-nowrap">{t("results.polyName")}</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.polyCategory")}</TableHead>
+                            <TableHead className="whitespace-nowrap">来源</TableHead>
+                            <TableHead className="whitespace-nowrap">{t("results.lat")} / {t("results.lng")}</TableHead>
+                            <TableHead className="max-w-xs truncate whitespace-nowrap">地址</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {poiResults.map((r, i) => (
+                            <TableRow key={`poi-${i}`}>
+                              <TableCell className="max-w-xs truncate font-medium">{r.name}</TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <Badge variant="outline" className="text-xs" style={{ borderColor: r.color, backgroundColor: `${r.color}20` }}>{r.categoryName}</Badge>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                {r.source === "osm" ? "OSM" : r.source === "gaode" ? "高德" : "百度"}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                                {r.lat.toFixed(5)}, {r.lng.toFixed(5)}
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                                {r.address || "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
