@@ -553,7 +553,7 @@ function expandBbox(bbox: [string, string, string, string], factor = 0.05): [num
 function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(areaType);
-  return `[out:json][timeout:50];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out body;>;out skel qt;`;
+  return `[out:json][timeout:50];(${filter.replace(/AREA_PLACEHOLDER/g, `${south},${west},${north},${east}`)});out geom;`;
 }
 
 function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): string {
@@ -613,13 +613,13 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "AREA_PLACEHOLDER"): s
 function buildBboxOverpassQuery(bbox: [number, number, number, number], type: AreaQueryType): string {
   const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(type);
-  return `[out:json][timeout:50];(${filter});out body;>;out skel qt;`;
+  return `[out:json][timeout:50];(${filter});out geom;`;
 }
 
 function buildPolygonOverpassQuery(latlngs: [number, number][], type: AreaQueryType): string {
   const polyStr = latlngs.map(([lat, lng]) => `${lat} ${lng}`).join(" ");
   const filter = getAreaPolyFilter(type);
-  return `[out:json][timeout:50];(poly:"${polyStr}";${filter});out body;>;out skel qt;`;
+  return `[out:json][timeout:50];(poly:"${polyStr}";${filter});out geom;`;
 }
 
 function getAreaPolyFilter(type: AreaQueryType): string {
