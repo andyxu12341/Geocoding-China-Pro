@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "release": "release-it --ci",
+    "release": "release-it --ci && git push origin main && git push origin --tags",
     "release:dry": "release-it --dry-run"
   },
   "dependencies": {
