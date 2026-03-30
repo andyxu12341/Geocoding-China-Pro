@@ -544,16 +544,16 @@ function expandBbox(bbox: [string, string, string, string], factor = 0.05): [num
   const lonRange = e - w;
   return [
     s - latRange * factor,
-    n + latRange * factor,
     w - lonRange * factor,
+    n + latRange * factor,
     e + lonRange * factor,
   ];
 }
 
 function buildOverpassBboxQuery(bbox: [number, number, number, number], areaType: AreaQueryType): string {
-  const [s, n, w, e] = bbox;
+  const [south, west, north, east] = bbox;
   const filter = getAreaTypeFilter(areaType);
-  return `[out:json][timeout:50];(${filter.replace(/\(area\.targetArea\)/g, `(${s},${w},${n},${e})`)});out body geom;`;
+  return `[out:json][timeout:50];(${filter.replace(/\(area\.targetArea\)/g, `(${south},${west},${north},${east})`)});out body geom;`;
 }
 
 function getAreaTypeFilter(type: AreaQueryType, areaRef = "area.targetArea"): string {
@@ -599,7 +599,10 @@ function getAreaTypeFilter(type: AreaQueryType, areaRef = "area.targetArea"): st
         `way["amenity"="school"](${areaRef});relation["amenity"="school"](${areaRef});`,
       ].join("");
     case "admin":
-      return `relation["boundary"="administrative"](${areaRef});`;
+      return [
+        `relation["boundary"="administrative"](${areaRef});`,
+        `way["boundary"="administrative"](${areaRef});`,
+      ].join("");
   }
 }
 
@@ -658,7 +661,10 @@ function getAreaPolyFilter(type: AreaQueryType): string {
         `way["amenity"="school"];`,
       ].join("");
     case "admin":
-      return `relation["boundary"="administrative"];`;
+      return [
+        `relation["boundary"="administrative"];`,
+        `way["boundary"="administrative"];`,
+      ].join("");
   }
 }
 
