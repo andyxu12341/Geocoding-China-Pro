@@ -361,6 +361,11 @@ export default function Index() {
                       regionFilter={regionFilter}
                       onResults={setResults}
                       onProcessingChange={setIsProcessing}
+                      onProgressUpdate={({ completed: c, total: t, elapsedMs: e }) => {
+                        setCompleted(c);
+                        setTotal(t);
+                        setElapsedMs(e);
+                      }}
                     />
                   </CardContent>
                 </Card>

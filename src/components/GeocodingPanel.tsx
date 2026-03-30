@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {
   MapPin, UploadCloud, FileText,
-  Play, Map,
+  Play, Map, Square, X, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,18 +14,20 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useGeocoding } from "@/hooks/useGeocoding";
 import { cn } from "@/lib/utils";
-import { type MapSource, type GeocodingConfig } from "@/utils/geocoding";
+import { type MapSource, type GeocodingConfig, type GeocodeItem } from "@/utils/geocoding";
 
 export interface GeocodingPanelProps {
   mapSource: MapSource;
   gaodeKey: string;
   baiduKey: string;
   regionFilter: string;
-  onResults: (results: Parameters<typeof useGeocoding>[0]["results"]) => void;
+  onResults: (results: GeocodeItem[]) => void;
   onProcessingChange: (isProcessing: boolean) => void;
+  onProgressUpdate: (data: { completed: number; total: number; elapsedMs: number }) => void;
 }
 
 const DEMO_ADDRESSES = "北京故宫\n上海东方明珠\n广州塔\n深圳平安金融中心\n成都大熊猫繁育研究基地";
@@ -97,9 +99,13 @@ async function parseUploadFile(file: File): Promise<{ headers: string[]; rows: R
   }
 }
 
+function formatSeconds(s: number) {
+  return s < 60 ? `${Math.round(s)} 秒` : `${Math.floor(s / 60)} 分 ${Math.round(s % 60)} 秒`;
+}
+
 export function GeocodingPanel({
   mapSource, gaodeKey, baiduKey, regionFilter,
-  onResults, onProcessingChange,
+  onResults, onProcessingChange, onProgressUpdate,
 }: GeocodingPanelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -116,11 +122,11 @@ export function GeocodingPanel({
   const [customColors, setCustomColors] = useState<Record<string, string>>({});
   const [isDragging, setIsDragging] = useState(false);
 
-  const isProcessing = geo.isProcessing;
-  const results = geo.results;
+  const { isProcessing, results, completed, total, elapsedMs } = geo;
 
   useEffect(() => { onProcessingChange(isProcessing); }, [isProcessing, onProcessingChange]);
   useEffect(() => { onResults(results); }, [results, onResults]);
+  useEffect(() => { onProgressUpdate({ completed, total, elapsedMs }); }, [completed, total, elapsedMs, onProgressUpdate]);
 
   const categoryValues = useMemo(() => {
     if (!categoryColumn || !fileData.length) return [];
@@ -157,6 +163,11 @@ export function GeocodingPanel({
 
   const addressCount = getAddresses().length;
   const displayCount = addressCount > 0 ? addressCount : (inputMode === "text" ? 5 : 0);
+  const progress = total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
+  const eta = (() => {
+    if (!isProcessing || completed === 0) return null;
+    return ((elapsedMs / 1000) / completed) * (total - completed);
+  })();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -306,13 +317,54 @@ export function GeocodingPanel({
         </Tabs>
       </div>
 
+      <AnimatePresence mode="wait">
+        {isProcessing ? (
+          <motion.div
+            key="processing"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3"
+          >
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t("progress.processing")}
+              </span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {completed} / {total}{eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}
+              </span>
+            </div>
+            <Progress value={progress} className="h-1.5" />
+            <div className="grid grid-cols-3 gap-1 text-center">
+              <div className="rounded bg-primary/10 px-1 py-0.5 text-xs">
+                <span className="text-muted-foreground">{t("progress.total")}</span>
+                <p className="font-mono font-medium">{total}</p>
+              </div>
+              <div className="rounded bg-emerald-500/10 px-1 py-0.5 text-xs">
+                <span className="text-muted-foreground">{t("progress.success")}</span>
+                <p className="font-mono font-medium text-emerald-600">{results.filter(r => r.status === "success").length}</p>
+              </div>
+              <div className="rounded bg-rose-500/10 px-1 py-0.5 text-xs">
+                <span className="text-muted-foreground">{t("progress.failed")}</span>
+                <p className="font-mono font-medium text-rose-600">{results.filter(r => r.status === "failed").length}</p>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <Button
         size="lg"
         className="w-full gap-2"
-        disabled={keyMissing || isProcessing}
-        onClick={handleConvert}
+        disabled={!isProcessing && keyMissing}
+        onClick={isProcessing ? () => geo.stopGeocoding() : handleConvert}
       >
-        <Play className="h-5 w-5" /> {t("convert.start", { source: mapSource === "gaode" ? "高德地图" : mapSource === "baidu" ? "百度地图" : "OpenStreetMap", count: displayCount })}
+        {isProcessing ? (
+          <><Square className="h-5 w-5" /> {t("cancel.stop")}</>
+        ) : (
+          <><Play className="h-5 w-5" /> {t("convert.start", { source: mapSource === "gaode" ? "高德地图" : mapSource === "baidu" ? "百度地图" : "OpenStreetMap", count: displayCount })}</>
+        )}
       </Button>
     </div>
   );

@@ -113,7 +113,8 @@
     "processed": "已处理 {{total}} 条，其中成功 {{success}} 条，失败 {{failed}} 条。",
     "remaining": "剩余 {{count}} 条未处理。",
     "confirm": "确认取消",
-    "resume": "继续转换"
+    "resume": "继续转换",
+    "stop": "终止请求"
   },
   "history": {
     "title": "历史记录",

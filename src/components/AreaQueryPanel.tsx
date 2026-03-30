@@ -77,6 +77,13 @@ export function AreaQueryPanel({ geoMapRef, mapSource, gaodeKey, baiduKey, onRes
     }
   }, [isOsm, areaType, mapSource]);
 
+  useEffect(() => {
+    if (error) {
+      console.error("[AreaQuery]", error);
+      toast({ title: t("toast.areaError"), description: error, variant: "destructive" });
+    }
+  }, [error, toast, t]);
+
   const poiSource = isOsm ? "osm" : mapSource === "gaode" ? "gaode" : "baidu";
   const apiKey = poiSource === "gaode" ? gaodeKey.trim() : poiSource === "baidu" ? baiduKey.trim() : undefined;
   const effectiveAreaType = (!isOsm && !areaType.startsWith("poi_")) ? "poi_all" : areaType;

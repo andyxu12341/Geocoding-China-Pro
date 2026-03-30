@@ -75,7 +75,8 @@ export function useGeocoding(): UseGeocodingReturn {
       addressToCategory,
     ).then(() => {
       setIsDone(true);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error("[geocodeBatch]", err);
     }).finally(() => {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
       setIsProcessing(false);

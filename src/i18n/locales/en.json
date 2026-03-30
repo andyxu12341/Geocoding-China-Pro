@@ -113,7 +113,8 @@
     "processed": "Processed {{total}} items: {{success}} succeeded, {{failed}} failed.",
     "remaining": "{{count}} items remaining.",
     "confirm": "Cancel",
-    "resume": "Resume"
+    "resume": "Resume",
+    "stop": "Stop Request"
   },
   "history": {
     "title": "History",
