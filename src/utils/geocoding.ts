@@ -9,7 +9,22 @@ export type AreaQueryType =
   | "all"         // 所有面域
   | "building"    // 建筑轮廓
   | "landuse"     // 城市功能区
-  | "admin";      // 行政边界
+  | "admin"       // 行政边界
+  // POI 点位
+  | "poi_restaurant"
+  | "poi_medical"
+  | "poi_transport"
+  | "poi_shopping"
+  | "poi_education"
+  | "poi_sport"
+  | "poi_all";
+
+export type QueryGroup = "polygon" | "poi";
+
+export function getQueryGroup(type: AreaQueryType): QueryGroup {
+  if (type.startsWith("poi_")) return "poi";
+  return "polygon";
+}
 
 export type AreaQueryMode = "semantic" | "rectangle" | "polygon";
 

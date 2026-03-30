@@ -1,49 +1,33 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import Papa from "papaparse";
-import * as XLSX from "xlsx";
 import {
-  MapPin, Key, Eye, EyeOff, UploadCloud, FileText,
-  Play, Download, CheckCircle2, XCircle, Loader2,
-  Map, Settings, StopCircle, Copy, Sun, Moon, History, Trash2, RotateCcw, Clock,
+  MapPin, Download, CheckCircle2, XCircle, Loader2,
+  Map, StopCircle, Copy, Sun, Moon, History, Trash2, RotateCcw, Clock,
 } from "lucide-react";
+import { GeocodingPanel } from "@/components/GeocodingPanel";
 import { AreaQueryPanel } from "@/components/AreaQueryPanel";
 import { ResultsSection } from "@/components/ResultsSection";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { type MapSource, type GeocodeItem, type GeocodingConfig, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
-import { useGeocoding } from "@/hooks/useGeocoding";
+import { type MapSource, type GeocodeItem, type AreaResult, type GeocodeCandidate } from "@/utils/geocoding";
 import { exportMapPNG } from "@/utils/exportUtils";
 import { GeoMap, type MapMarker, type GeoMapHandle, type CategoryColor, type MapPolygon } from "@/components/GeoMap";
-
-const DEMO_ADDRESSES = "北京故宫\n上海东方明珠\n广州塔\n深圳平安金融中心\n成都大熊猫繁育研究基地";
 
 const SOURCE_LABELS: Record<MapSource, string> = {
   gaode: "高德地图",
   baidu: "百度地图",
   osm: "OpenStreetMap",
 };
-
-// D3-inspired distinct color palette
-const CATEGORY_PALETTE = [
-  "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
-  "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
-  "#af7aa1", "#17becf", "#bcbd22", "#7f7f7f", "#e377c2",
-];
 
 function formatSeconds(s: number) {
   return s < 60 ? `${Math.round(s)} 秒` : `${Math.floor(s / 60)} 分 ${Math.round(s % 60)} 秒`;
@@ -69,81 +53,6 @@ const StatsCard = ({ title, value, icon, color }: {
   );
 };
 
-/* Parse uploaded CSV or Excel file into address list */
-async function parseUploadFile(file: File): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
-  const ext = file.name.split(".").pop()?.toLowerCase();
-
-  try {
-    if (ext === "xlsx" || ext === "xls") {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
-      const headers = json.length > 0 ? Object.keys(json[0]) : [];
-      return {
-        headers,
-        rows: json
-          .map(r => {
-            const out: Record<string, string> = {};
-            headers.forEach(h => { out[h] = String(r[h] ?? ""); });
-            return out;
-          })
-          .filter(r => headers.some(h => r[h]?.trim())),
-      };
-    }
-
-    // CSV — try UTF-8 first, fallback GBK
-    return await new Promise<{ headers: string[]; rows: Record<string, string>[] }>((resolve, reject) => {
-      const tryParse = (encoding: string) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const text = reader.result as string;
-            Papa.parse<Record<string, string>>(text, {
-              header: true,
-              skipEmptyLines: "greedy",
-              complete: (res) => {
-                const fields = (res.meta.fields ?? []).filter(f => f.trim());
-                if (!fields.length) {
-                  if (encoding === "UTF-8") {
-                    tryParse("GBK");
-                    return;
-                  }
-                  reject(new Error("无法识别 CSV 表头"));
-                  return;
-                }
-                // Filter empty rows
-                const cleaned = (res.data ?? []).filter(row =>
-                  fields.some(f => (row[f] ?? "").trim())
-                );
-                resolve({ headers: fields, rows: cleaned });
-              },
-              error: () => {
-                if (encoding === "UTF-8") {
-                  tryParse("GBK");
-                } else {
-                  reject(new Error("CSV 解析失败"));
-                }
-              },
-            });
-          } catch {
-            if (encoding === "UTF-8") {
-              tryParse("GBK");
-            } else {
-              reject(new Error("CSV 解析异常"));
-            }
-          }
-        };
-        reader.onerror = () => reject(new Error("文件读取失败"));
-        reader.readAsText(file, encoding);
-      };
-      tryParse("UTF-8");
-    });
-  } catch (err) {
-    throw err instanceof Error ? err : new Error("文件解析失败");
-  }
-}
-
 function getSystemDarkMode() {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -160,37 +69,26 @@ function getInitialDarkMode(): boolean {
 export default function Index() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const geoMapRef = useRef<GeoMapHandle>(null);
 
+  const [mapSource, setMapSource] = useState<MapSource>("osm");
   const [gaodeKey, setGaodeKey] = useState("");
   const [baiduKey, setBaiduKey] = useState("");
   const [showGaode, setShowGaode] = useState(false);
   const [showBaidu, setShowBaidu] = useState(false);
-  const [mapSource, setMapSource] = useState<MapSource>("osm");
   const [regionFilter, setRegionFilter] = useState("");
   const [appMode, setAppMode] = useState<"geocoding" | "polygon">("geocoding");
 
-  const [inputMode, setInputMode] = useState<"text" | "file">("text");
-  const [textInput, setTextInput] = useState("");
-  const [fileData, setFileData] = useState<Record<string, string>[]>([]);
-  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
-  const [selectedColumn, setSelectedColumn] = useState("");
-  const [fileName, setFileName] = useState("");
-
-  // Category column
-  const [categoryColumn, setCategoryColumn] = useState("");
-  const [customColors, setCustomColors] = useState<Record<string, string>>({});
-
-  const geo = useGeocoding();
-  const results = geo.results;
-  const isDone = geo.isDone;
-  const { completed, total, elapsedMs, isProcessing, setResults, setIsDone, setTotal, setCompleted } = geo;
+  const [results, setResults] = useState<GeocodeItem[]>([]);
+  const [isDone, setIsDone] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [completed, setCompleted] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
   // Cancel dialog
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [pendingAddresses, setPendingAddresses] = useState<string[]>([]);
 
   // Candidate selection
   const [candidateDialog, setCandidateDialog] = useState<{ address: string; candidates: GeocodeCandidate[] } | null>(null);
@@ -264,7 +162,6 @@ export default function Index() {
     }
   }, [darkMode, userOverride]);
 
-  // Listen to system theme changes
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => {
@@ -281,46 +178,6 @@ export default function Index() {
     setDarkMode(prev => !prev);
   };
 
-  // Drag state
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    try {
-      const { headers, rows } = await parseUploadFile(file);
-      setFileData(rows);
-      setFileHeaders(headers);
-      setFileName(file.name);
-      setInputMode("file");
-      const guess = headers.find(f => /地址|address|位置|名称|name/i.test(f)) || headers[0];
-      setSelectedColumn(guess);
-      setCategoryColumn("");
-    } catch (err) {
-      toast({ title: t("toast.parseError"), description: err instanceof Error ? err.message : t("toast.fileFormat"), variant: "destructive" });
-    }
-  }, [toast, t]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
   useEffect(() => {
     const map = geoMapRef.current?.getMap();
     if (!map) return;
@@ -329,7 +186,6 @@ export default function Index() {
     return () => { map.off("mousedown touchstart", disable); };
   });
 
-  // beforeunload guard
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (isProcessing) {
@@ -341,29 +197,6 @@ export default function Index() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isProcessing]);
 
-  // Category unique values & color mapping
-  const categoryValues = useMemo(() => {
-    if (!categoryColumn || !fileData.length) return [];
-    const set = new Set<string>();
-    fileData.forEach(row => {
-      const v = row[categoryColumn]?.trim();
-      if (v) set.add(v);
-    });
-    return Array.from(set);
-  }, [categoryColumn, fileData]);
-
-  // Initialize default colors when category values change
-  useEffect(() => {
-    if (categoryValues.length === 0) return;
-    setCustomColors(prev => {
-      const next = { ...prev };
-      categoryValues.forEach((v, i) => {
-        if (!next[v]) next[v] = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length];
-      });
-      return next;
-    });
-  }, [categoryValues]);
-
   const mapMarkers: MapMarker[] = results
     .filter(r => r.status === "success" && r.lat && r.lng)
     .map(r => ({
@@ -372,13 +205,6 @@ export default function Index() {
       label: r.address,
       category: r.category,
     }));
-
-  const categoryColorList: CategoryColor[] = useMemo(() => {
-    return categoryValues.map(v => ({
-      category: v,
-      color: customColors[v] || CATEGORY_PALETTE[0],
-    }));
-  }, [categoryValues, customColors]);
 
   const mapPolygons: MapPolygon[] = areaResults.map((r) => ({
     id: `${r.osmId}`,
@@ -399,101 +225,12 @@ export default function Index() {
   const successCount = results.filter(r => r.status === "success").length;
   const failedCount = results.filter(r => r.status === "failed").length;
 
-  const getAddresses = useCallback((): string[] => {
-    if (inputMode === "text") {
-      return textInput.split("\n").map(s => s.trim()).filter(Boolean);
-    }
-    if (!selectedColumn) return [];
-    return fileData.map(row => row[selectedColumn]?.trim()).filter(Boolean) as string[];
-  }, [inputMode, textInput, fileData, selectedColumn]);
-
-  const resolveAddresses = useCallback((): string[] => {
-    const addrs = getAddresses();
-    if (addrs.length === 0 && inputMode === "text") {
-      return DEMO_ADDRESSES.split("\n").map(s => s.trim()).filter(Boolean);
-    }
-    return addrs;
-  }, [getAddresses, inputMode]);
-
-  const addressCount = getAddresses().length;
-  const keyMissing = (mapSource === "gaode" && !gaodeKey.trim()) || (mapSource === "baidu" && !baiduKey.trim());
-  const canStart = !keyMissing && !isProcessing;
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const { headers, rows } = await parseUploadFile(file);
-      setFileData(rows);
-      setFileHeaders(headers);
-      setFileName(file.name);
-      const guess = headers.find(f => /地址|address|位置|名称|name/i.test(f)) || headers[0];
-      setSelectedColumn(guess);
-      setCategoryColumn("");
-    } catch (err) {
-      toast({ title: t("toast.parseError"), description: err instanceof Error ? err.message : t("toast.fileFormat"), variant: "destructive" });
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleConvert = () => {
-    const addresses = resolveAddresses();
-    if (addresses.length === 0) {
-      toast({ title: t("toast.noAddress"), variant: "destructive" });
-      return;
-    }
-    if (!canStart) return;
-    setPendingAddresses(addresses);
-
-    let addressToCategory: Map<string, string> | undefined;
-    if (categoryColumn && fileData.length > 0) {
-      addressToCategory = new globalThis.Map() as Map<string, string>;
-      fileData.forEach(row => {
-        const addr = row[selectedColumn]?.trim();
-        const cat = row[categoryColumn]?.trim();
-        if (addr && cat) addressToCategory!.set(addr, cat);
-      });
-    }
-
-    const config: GeocodingConfig = {
-      source: mapSource,
-      gaodeKey: gaodeKey.trim() || undefined,
-      baiduKey: baiduKey.trim() || undefined,
-      regionFilter: regionFilter.trim() || undefined,
-    };
-
-    geo.startGeocoding(addresses, config, addressToCategory);
-  };
-
   const handleStop = () => {
-    geo.stopGeocoding();
     setShowCancelDialog(true);
   };
 
   const handleResume = () => {
     setShowCancelDialog(false);
-    const processedAddrs = new Set(results.map(r => r.address));
-    const remaining = pendingAddresses.filter(a => !processedAddrs.has(a));
-    if (remaining.length === 0) return;
-
-    let addressToCategory: Map<string, string> | undefined;
-    if (categoryColumn && fileData.length > 0) {
-      addressToCategory = new globalThis.Map() as Map<string, string>;
-      fileData.forEach(row => {
-        const addr = row[selectedColumn]?.trim();
-        const cat = row[categoryColumn]?.trim();
-        if (addr && cat) addressToCategory!.set(addr, cat);
-      });
-    }
-
-    const config: GeocodingConfig = {
-      source: mapSource,
-      gaodeKey: gaodeKey.trim() || undefined,
-      baiduKey: baiduKey.trim() || undefined,
-      regionFilter: regionFilter.trim() || undefined,
-    };
-
-    geo.startGeocoding(remaining, config, addressToCategory);
   };
 
   const handleConfirmCancel = () => {
@@ -517,8 +254,6 @@ export default function Index() {
       toast({ title: t("toast.screenshotFail"), description: t("toast.screenshotHint"), variant: "destructive" });
     }
   };
-
-  const displayCount = addressCount > 0 ? addressCount : (inputMode === "text" ? 5 : 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -562,185 +297,23 @@ export default function Index() {
             <div className="w-full md:w-[400px] shrink-0 space-y-4 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 120px)" }}>
 
               {/* Tab A: Point Geocoding */}
-              <TabsContent value="geocoding" className="mt-0 space-y-3">
-                <motion.div
-                  key="tab-geocoding"
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
-                  className="space-y-3"
-                >
-                <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <Settings className="h-4 w-4" /> {t("settings.title")}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("settings.mapSource")}</label>
-                      <Select value={mapSource} onValueChange={(v) => setMapSource(v as MapSource)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="gaode">{t("settings.gaode")}</SelectItem>
-                          <SelectItem value="baidu">{t("settings.baidu")}</SelectItem>
-                          <SelectItem value="osm">{t("settings.osm")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {mapSource === "osm" && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                        ⚠️ {t("settings.osmWarning")}
-                      </div>
-                    )}
-
-                    {mapSource === "gaode" && (
-                      <div>
-                        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          <Key className="h-3 w-3" /> {t("settings.gaodeKey")}
-                        </label>
-                        <div className="relative">
-                          <Input type={showGaode ? "text" : "password"} value={gaodeKey} onChange={(e) => setGaodeKey(e.target.value)} placeholder={t("settings.gaodeKeyPlaceholder")} className="pr-10 text-sm" />
-                          <button type="button" onClick={() => setShowGaode(!showGaode)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                            {showGaode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">{t("settings.gaodeKeyHint")}</p>
-                      </div>
-                    )}
-
-                    {mapSource === "baidu" && (
-                      <div>
-                        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          <Key className="h-3 w-3" /> {t("settings.baiduKey")}
-                        </label>
-                        <div className="relative">
-                          <Input type={showBaidu ? "text" : "password"} value={baiduKey} onChange={(e) => setBaiduKey(e.target.value)} placeholder={t("settings.baiduKeyPlaceholder")} className="pr-10 text-sm" />
-                          <button type="button" onClick={() => setShowBaidu(!showBaidu)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                            {showBaidu ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">{t("settings.baiduKeyHint")}</p>
-                      </div>
-                    )}
-
-                    {mapSource === "osm" && (
-                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                        ✅ {t("settings.osmFree")}
-                      </div>
-                    )}
-
-                    <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => { setHistoryList(loadHistory()); setShowHistoryDialog(true); }}>
-                      <History className="h-3.5 w-3.5" /> {t("settings.history")}
-                    </Button>
-
-                    <div>
-                      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                        <MapPin className="h-3 w-3" /> {t("settings.regionFilter")}
-                      </label>
-                      <Input value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} placeholder={mapSource === "osm" ? t("settings.regionFilterOsm") : t("settings.regionFilterOther")} className="text-sm" />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {mapSource === "osm" ? t("settings.regionFilterHintOsm") : t("settings.regionFilterHintOther")}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="min-w-0 overflow-hidden">
-                  <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "file")}>
-                    <TabsList className="w-full">
-                      <TabsTrigger value="text" className="flex-1 gap-1">
-                        <FileText className="h-3.5 w-3.5" /> {t("input.textTab")}
-                      </TabsTrigger>
-                      <TabsTrigger value="file" className="flex-1 gap-1">
-                        <UploadCloud className="h-3.5 w-3.5" /> {t("input.fileTab")}
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="text" className="mt-2">
-                      <Textarea value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder={DEMO_ADDRESSES} className="min-h-[120px] resize-y text-sm" />
-                      <p className="mt-1 text-xs text-muted-foreground">{t("input.textHint")}</p>
-                    </TabsContent>
-                    <TabsContent value="file" className="mt-2">
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={handleDragOver}
-                        onDragEnter={handleDragEnter}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={cn("flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors", isDragging ? "border-primary bg-primary/10" : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50")}
-                      >
-                        <UploadCloud className={cn("mb-1 h-6 w-6", isDragging ? "text-primary" : "text-muted-foreground")} />
-                        <p className="text-xs font-medium text-muted-foreground">{isDragging ? t("input.fileUploading") : t("input.fileDrag")}</p>
-                        <p className="text-xs text-muted-foreground">{t("input.fileHint")}</p>
-                        <input ref={fileInputRef} type="file" accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleFileUpload} />
-                      </div>
-                      {fileHeaders.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="mb-1 block text-xs font-medium text-muted-foreground">📂 {fileName} — {t("input.addressCol")}</label>
-                              <Select value={selectedColumn} onValueChange={setSelectedColumn}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>{fileHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
-                              </Select>
-                              <p className="mt-1 text-xs text-muted-foreground">{t("input.rowsLoaded", { count: fileData.length })}</p>
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-medium text-muted-foreground">🏷️ {t("input.categoryCol")}</label>
-                              <Select value={categoryColumn} onValueChange={setCategoryColumn}>
-                                <SelectTrigger><SelectValue placeholder={t("input.noCategory")} /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="__none__">{t("input.noCategory")}</SelectItem>
-                                  {fileHeaders.filter(h => h !== selectedColumn).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          {categoryColumn && categoryColumn !== "__none__" && categoryValues.length > 0 && (
-                            <div className="rounded-lg border p-2">
-                              <p className="mb-1 text-xs font-medium text-muted-foreground">🎨 {t("input.categoryColors")}</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {categoryValues.map(v => (
-                                  <label key={v} className="flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs hover:bg-accent">
-                                    <input type="color" value={customColors[v] || CATEGORY_PALETTE[0]} onChange={(e) => setCustomColors(prev => ({ ...prev, [v]: e.target.value }))} className="h-3.5 w-3.5 cursor-pointer border-0 p-0" />
-                                    <span className="max-w-[80px] truncate">{v}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <div className="overflow-hidden">
-                            <Table containerClassName="w-full overflow-x-auto overflow-y-auto max-h-[200px] border rounded text-xs">
-                              <TableHeader className="sticky top-0 z-10 bg-card">
-                                <TableRow>{fileHeaders.map(h => <TableHead key={h} title={h} className={cn("max-w-[120px] truncate text-xs", h === selectedColumn && "bg-primary/10 font-bold")}>{h}</TableHead>)}</TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {fileData.slice(0, 5).map((row, i) => (
-                                  <TableRow key={i}>{fileHeaders.map(h => <TableCell key={h} title={String(row[h] ?? "")} className={cn("max-w-[120px] truncate text-xs", h === selectedColumn && "bg-primary/5 font-medium")}>{row[h] ?? ""}</TableCell>)}</TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                            {fileData.length > 5 && <p className="pt-1 text-center text-xs text-muted-foreground">{t("input.previewRows", { count: fileData.length })}</p>}
-                          </div>
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </div>
-
-                {/* Convert Button */}
-                {isProcessing ? (
-                  <Button variant="destructive" size="lg" className="w-full gap-2" onClick={handleStop}>
-                    <StopCircle className="h-5 w-5" /> {t("convert.stop")}
-                  </Button>
-                ) : (
-                  <Button size="lg" className="w-full gap-2" disabled={!canStart} onClick={handleConvert}>
-                    <Play className="h-5 w-5" /> {t("convert.start", { source: SOURCE_LABELS[mapSource], count: displayCount })}
-                  </Button>
-                )}
-
-                </motion.div>
+              <TabsContent value="geocoding" className="mt-0">
+                <GeocodingPanel
+                  mapSource={mapSource}
+                  onMapSourceChange={setMapSource}
+                  gaodeKey={gaodeKey}
+                  onGaodeKeyChange={setGaodeKey}
+                  baiduKey={baiduKey}
+                  onBaiduKeyChange={setBaiduKey}
+                  showGaode={showGaode}
+                  onShowGaodeChange={setShowGaode}
+                  showBaidu={showBaidu}
+                  onShowBaiduChange={setShowBaidu}
+                  regionFilter={regionFilter}
+                  onRegionFilterChange={setRegionFilter}
+                  onResults={setResults}
+                  onProcessingChange={setIsProcessing}
+                />
               </TabsContent>
 
               {/* Tab B: Polygon Extraction */}
@@ -781,7 +354,6 @@ export default function Index() {
                     polygons={mapPolygons}
                     className="h-full w-full"
                     autoFitDisabled={autoFitDisabled}
-                    categoryColors={categoryColorList.length > 0 ? categoryColorList : undefined}
                   />
                 </div>
               </CardContent>
@@ -801,7 +373,7 @@ export default function Index() {
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">{completed} / {total}{eta !== null && ` · ${t("progress.remaining", { time: formatSeconds(eta) })}`}</span>
                   </div>
-                  <Progress value={geo.results.length > 0 && total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0} className="h-1.5" />
+                  <Progress value={results.length > 0 && total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0} className="h-1.5" />
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     <StatsCard title={t("progress.total")} value={total} icon={<Map className="h-4 w-4" />} color="blue" />
                     <StatsCard title={t("progress.success")} value={successCount} icon={<CheckCircle2 className="h-4 w-4" />} color="emerald" />
@@ -955,12 +527,11 @@ export default function Index() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("cancel.title")}</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2">
-                <p>{t("cancel.processed", { total: results.length, success: successCount, failed: failedCount })}</p>
-                <p>{t("cancel.remaining", { count: pendingAddresses.length - results.length })}</p>
-              </div>
-            </AlertDialogDescription>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2">
+                  <p>{t("cancel.processed", { total: results.length, success: successCount, failed: failedCount })}</p>
+                </div>
+              </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleConfirmCancel}>{t("cancel.confirm")}</AlertDialogCancel>
